@@ -1,0 +1,42 @@
+# Arquivos de desenvolvimento
+node_modules/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos temporários
+.DS_Store
+Thumbs.db
+
+# Arquivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos de build local
+build/
+dist/
+
+# Arquivos de teste
+coverage/
+.nyc_output/
+
+# Arquivos de cache
+.cache/
+.parcel-cache/
+
+# Arquivos do servidor local
+server.js
+package-lock.json
+
+# Documentação
+README.md
+DEPLOY.md

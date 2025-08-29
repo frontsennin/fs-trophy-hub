@@ -26,5 +26,10 @@
     "api/psn-proxy.js": {
       "maxDuration": 30
     }
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
   }
 }

@@ -6,6 +6,10 @@
 - Projeto no GitHub/GitLab
 - NPSSO Token válido da PlayStation Network
 
+## ⚠️ IMPORTANTE: Deploy Manual
+
+**NÃO use deploy automático!** O projeto está configurado para deploy manual para evitar conflitos.
+
 ## 🔧 Configuração para Deploy
 
 ### 1. Preparar o Projeto
@@ -19,10 +23,11 @@
 
 2. **Verificar arquivos:**
    - ✅ `api/psn-proxy.js` - Vercel Function
-   - ✅ `vercel.json` - Configuração do Vercel
+   - ✅ `vercel.json` - Configuração do Vercel (com deploy automático desabilitado)
+   - ✅ `.vercelignore` - Arquivos ignorados
    - ✅ `package.json` - Scripts de build
 
-### 2. Deploy no Vercel
+### 2. Deploy Manual no Vercel
 
 1. **Conectar ao Vercel:**
    - Acesse [vercel.com](https://vercel.com)
@@ -40,12 +45,18 @@
    - **Output Directory:** `build`
    - **Install Command:** `npm install`
 
-4. **Variáveis de Ambiente (Opcional):**
+4. **IMPORTANTE - Desabilitar Deploy Automático:**
+   - Na configuração do projeto, vá em "Settings"
+   - Encontre "Git" ou "Deployments"
+   - **Desabilite "Auto Deploy"** ou "Deploy on Push"
+   - Salve as configurações
+
+5. **Variáveis de Ambiente (Opcional):**
    - `NODE_ENV=production`
    - `NPSSO_TOKEN=sua_token_aqui` (se quiser usar env)
 
-5. **Deploy:**
-   - Clique em "Deploy"
+6. **Deploy Manual:**
+   - Clique em "Deploy" (não será automático)
    - Aguarde o build completar
 
 ### 3. Configurar URL da API
@@ -71,6 +82,23 @@ const BASE_URL = isProduction
    - Visualização de troféus
    - Perfil do usuário
 
+## 🚫 Solução de Problemas
+
+### Se o deploy automático estiver ativo:
+
+1. **No Vercel Dashboard:**
+   - Vá em "Settings" do projeto
+   - "Git" → "Deployments"
+   - Desabilite "Auto Deploy"
+
+2. **Ou via arquivo:**
+   - O `vercel.json` já tem `"deploymentEnabled": { "main": false }`
+   - Isso deve desabilitar automaticamente
+
+3. **Se ainda não funcionar:**
+   - Delete o projeto no Vercel
+   - Recrie com deploy manual
+
 ## ⚠️ Limitações do Vercel
 
 ### ✅ **Funciona:**
@@ -92,6 +120,10 @@ const BASE_URL = isProduction
 1. Acesse [PlayStation Network](https://ca.account.sony.com/api/authz/v3/oauth/authorize)
 2. Copie o novo token
 3. Atualize em `api/psn-proxy.js`
+
+### Deploy Manual:
+- Sempre use "Deploy" manual no Vercel Dashboard
+- Não confie em deploy automático
 
 ### Monitoramento:
 - Vercel Dashboard → Analytics
@@ -120,4 +152,4 @@ const BASE_URL = isProduction
 
 ---
 
-**🎮 FS Trophy Hub - Deployado com sucesso no Vercel!**
+**🎮 FS Trophy Hub - Deployado com sucesso no Vercel (Manual)!**
