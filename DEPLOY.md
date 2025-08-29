@@ -23,7 +23,7 @@
 
 2. **Verificar arquivos:**
    - ✅ `api/psn-proxy.js` - Vercel Function
-   - ✅ `vercel.json` - Configuração do Vercel (com deploy automático desabilitado)
+   - ✅ `vercel.json` - Configuração do Vercel (corrigida)
    - ✅ `.vercelignore` - Arquivos ignorados
    - ✅ `package.json` - Scripts de build
 
@@ -84,6 +84,11 @@ const BASE_URL = isProduction
 
 ## 🚫 Solução de Problemas
 
+### Erro de Configuração:
+Se aparecer erro sobre `functions` e `builds`:
+- ✅ **Já corrigido** no `vercel.json`
+- Usa apenas `builds` com configuração para React e Node.js
+
 ### Se o deploy automático estiver ativo:
 
 1. **No Vercel Dashboard:**
@@ -110,7 +115,7 @@ const BASE_URL = isProduction
 
 ### ⚠️ **Limitações:**
 - **Cold starts** nas functions
-- **Timeout** de 30s por request
+- **Timeout** de 30s por request (configurado)
 - **Cache** limitado (usar Redis para produção)
 - **NPSSO Token** expira (renovar manualmente)
 

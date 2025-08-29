@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TrophyTitle, Trophy, GameStats, ProfileSummary } from './types';
 import { PSNService } from './services/psnService';
 import GameCard from './components/GameCard';
@@ -15,10 +15,6 @@ function App() {
   const [stats, setStats] = useState<GameStats | null>(null);
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
   const [serverStatus, setServerStatus] = useState<boolean>(false);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   // Função para ordenar jogos por troféus
   const sortGamesByTrophies = (gamesData: TrophyTitle[]): TrophyTitle[] => {
@@ -44,7 +40,7 @@ function App() {
     });
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -102,7 +98,11 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const calculateStats = (gamesData: TrophyTitle[]): GameStats => {
     const totalGames = gamesData.length;

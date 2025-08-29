@@ -69,6 +69,9 @@ async function getValidTokens() {
 }
 
 export default async function handler(req, res) {
+  // Configurar timeout para 30 segundos
+  res.setTimeout(30000);
+  
   // Configurar CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');

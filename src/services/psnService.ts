@@ -1,10 +1,3 @@
-import { 
-  exchangeNpssoForAccessCode, 
-  exchangeAccessCodeForAuthTokens, 
-  getUserTitles,
-  getUserTrophiesEarnedForTitle,
-  getTitleTrophies
-} from 'psn-api';
 import { mockTrophyTitles, mockTrophies, simulateApiDelay } from './mockData';
 
 // NPSSO token do Front
@@ -62,28 +55,6 @@ export interface ProfileSummary {
 }
 
 export class PSNService {
-  private static authorization: any = null;
-
-  static async authenticate(): Promise<void> {
-    if (USE_MOCK_DATA) {
-      console.log('Using mock data for development');
-      return;
-    }
-
-    try {
-      // Exchange NPSSO for access code
-      const accessCode = await exchangeNpssoForAccessCode(NPSSO_TOKEN);
-      
-      // Exchange access code for auth tokens
-      this.authorization = await exchangeAccessCodeForAuthTokens(accessCode);
-      
-      console.log('PSN Authentication successful!');
-    } catch (error) {
-      console.error('PSN Authentication failed:', error);
-      throw error;
-    }
-  }
-
   static async getTrophyTitles(): Promise<TrophyTitle[]> {
     if (USE_MOCK_DATA) {
       // Simular delay da API

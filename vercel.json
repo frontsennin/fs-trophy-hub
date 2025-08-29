@@ -24,7 +24,9 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "GENERATE_SOURCEMAP": "false",
+    "CI": "false"
   },
   "git": {
     "deploymentEnabled": {
