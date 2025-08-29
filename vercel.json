@@ -26,7 +26,8 @@
   "env": {
     "NODE_ENV": "production",
     "GENERATE_SOURCEMAP": "false",
-    "CI": "false"
+    "CI": "false",
+    "DISABLE_ESLINT_PLUGIN": "true"
   },
   "git": {
     "deploymentEnabled": {

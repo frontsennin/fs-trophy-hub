@@ -1,8 +1,5 @@
 import { mockTrophyTitles, mockTrophies, simulateApiDelay } from './mockData';
 
-// NPSSO token do Front
-const NPSSO_TOKEN = 'C7EGmpvBTjuxGT5fOpGFXKBeNAWTl8Lo5fOWCYC4CMtu1elBaVHlkYLP9uz3cRE7';
-
 // Flag para usar dados mockados (true para desenvolvimento)
 const USE_MOCK_DATA = false;
 
