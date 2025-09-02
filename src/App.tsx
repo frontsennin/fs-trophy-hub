@@ -1,46 +1,61 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { TrophyTitle, Trophy, GameStats, ProfileSummary } from './types';
-import { PSNService } from './services/psnService';
+import React, { useState, useEffect } from 'react';
+import './App.css';
 import GameCard from './components/GameCard';
 import TrophyCard from './components/TrophyCard';
-import MockDataWarning from './components/MockDataWarning';
-import './App.css';
+import PSNStatusIndicator from './components/PSNStatusIndicator';
+import CurrentGameCard from './components/CurrentGameCard';
+import GameSuggestionForm from './components/GameSuggestionForm';
+import { PSNService } from './services/psnService';
+import { FirebaseService } from './services/firebaseService';
+import { SyncService } from './services/syncService';
+import { TrophyTitle, Trophy, ProfileSummary, CurrentGame, GameSuggestion } from './types';
 
 function App() {
-  const [games, setGames] = useState<TrophyTitle[]>([]);
+  const [trophyTitles, setTrophyTitles] = useState<TrophyTitle[]>([]);
+  
+  // Debug: Log quando trophyTitles mudar
+  useEffect(() => {
+    console.log('🎮 trophyTitles atualizado:', trophyTitles.length, 'jogos');
+  }, [trophyTitles]);
   const [selectedGame, setSelectedGame] = useState<TrophyTitle | null>(null);
   const [trophies, setTrophies] = useState<Trophy[]>([]);
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
+  const [currentGame, setCurrentGame] = useState<CurrentGame | null>(null);
+  const [gameSuggestions, setGameSuggestions] = useState<GameSuggestion[]>([]);
+
+  const [showSuggestionForm, setShowSuggestionForm] = useState(false);
+  const [currentView, setCurrentView] = useState<'games' | 'currentGame' | 'suggestions' | 'sync'>('games');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<GameStats | null>(null);
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
+  const [envInfo, setEnvInfo] = useState<any>(null);
   const [serverStatus, setServerStatus] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<{ isSyncing: boolean; hasAutoSync: boolean }>({ isSyncing: false, hasAutoSync: false });
 
-  // Função para ordenar jogos por troféus
-  const sortGamesByTrophies = (gamesData: TrophyTitle[]): TrophyTitle[] => {
-    return gamesData.sort((a, b) => {
-      // 1. Primeiro por platinas (decrescente)
-      const platinumDiff = (b.earnedTrophies?.platinum || 0) - (a.earnedTrophies?.platinum || 0);
-      if (platinumDiff !== 0) return platinumDiff;
-      
-      // 2. Depois por ouro (decrescente)
-      const goldDiff = (b.earnedTrophies?.gold || 0) - (a.earnedTrophies?.gold || 0);
-      if (goldDiff !== 0) return goldDiff;
-      
-      // 3. Depois por prata (decrescente)
-      const silverDiff = (b.earnedTrophies?.silver || 0) - (a.earnedTrophies?.silver || 0);
-      if (silverDiff !== 0) return silverDiff;
-      
-      // 4. Depois por bronze (decrescente)
-      const bronzeDiff = (b.earnedTrophies?.bronze || 0) - (a.earnedTrophies?.bronze || 0);
-      if (bronzeDiff !== 0) return bronzeDiff;
-      
-      // 5. Por último, por progresso (decrescente)
-      return (b.progress || 0) - (a.progress || 0);
-    });
+          useEffect(() => {
+          loadData();
+          loadEnvironmentInfo();
+          loadFirebaseData();
+
+          // Configurar sincronização automática a cada 30 minutos
+          SyncService.setupAutoSync(30);
+
+          // Atualizar status da sincronização a cada 5 segundos
+          const syncStatusInterval = setInterval(() => {
+            setSyncStatus(SyncService.getSyncStatus());
+          }, 5000);
+
+          return () => {
+            clearInterval(syncStatusInterval);
+            SyncService.stopAutoSync();
+          };
+        }, []);
+
+  const loadEnvironmentInfo = () => {
+    const info = PSNService.getEnvironmentInfo();
+    setEnvInfo(info);
   };
 
-  const loadData = useCallback(async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -50,233 +65,422 @@ function App() {
       setServerStatus(isServerRunning);
       
       if (!isServerRunning) {
-        setError('Servidor proxy não está rodando. Por favor, inicie o servidor primeiro.');
+        if (envInfo?.useProxy) {
+          setError('Servidor proxy não está rodando. Execute "node server.js" em outro terminal.');
+        } else {
+          setError('Falha na autenticação PSN. Verifique as credenciais.');
+        }
         setLoading(false);
         return;
       }
       
-      // Carregar dados em paralelo
-      const [gamesData, profileData] = await Promise.all([
-        PSNService.getTrophyTitles(),
-        PSNService.getProfileSummary()
-      ]);
-      
-      // Ordenar jogos por troféus
-      const sortedGames = sortGamesByTrophies(gamesData);
-      
-      setGames(sortedGames);
-      setProfileSummary(profileData);
-      
-      // Calcular stats baseado no perfil real
-      if (profileData) {
-        const gameStats: GameStats = {
-          totalGames: gamesData.length,
-          completedGames: gamesData.filter(game => game.progress === 100).length,
-          totalTrophies: profileData.earnedTrophies.bronze + 
-                        profileData.earnedTrophies.silver + 
-                        profileData.earnedTrophies.gold + 
-                        profileData.earnedTrophies.platinum,
-          earnedTrophies: profileData.earnedTrophies.bronze + 
-                         profileData.earnedTrophies.silver + 
-                         profileData.earnedTrophies.gold + 
-                         profileData.earnedTrophies.platinum,
-          platinumTrophies: profileData.earnedTrophies.platinum,
-          goldTrophies: profileData.earnedTrophies.gold,
-          silverTrophies: profileData.earnedTrophies.silver,
-          bronzeTrophies: profileData.earnedTrophies.bronze
-        };
-        setStats(gameStats);
-      } else {
-        // Fallback para stats estimados
-        const gameStats = calculateStats(gamesData);
-        setStats(gameStats);
+              // Carregar dados do Firebase primeiro
+      try {
+        await loadFirebaseData();
+        
+        // Se Firebase não retornou dados, carregar do PSN
+        if (!trophyTitles || trophyTitles.length === 0) {
+          console.log('🔄 Firebase vazio, carregando dados do PSN...');
+          await loadPSNData();
+        }
+      } catch (firebaseError) {
+        console.warn('⚠️ Erro ao carregar dados do Firebase, tentando PSN:', firebaseError);
+        // Se Firebase falhar, carregar do PSN
+        await loadPSNData();
       }
       
-    } catch (err) {
-      setError('Falha ao carregar dados. Por favor, tente novamente.');
-      console.error('Error loading data:', err);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      setError('Erro ao carregar dados. Verifique o console para mais detalhes.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+          const loadFirebaseData = async () => {
+          try {
+            console.log('🔄 Carregando dados do Firebase...');
+            
+            // Carregar dados do Firebase
+            const [currentGameData, suggestionsData, gameLibraryData] = await Promise.all([
+              FirebaseService.getCurrentGame(),
+              FirebaseService.getGameSuggestions(),
+              FirebaseService.getGameLibrary()
+            ]);
+            
+            console.log('📊 Dados recebidos do Firebase:', {
+              currentGame: currentGameData,
+              suggestions: suggestionsData?.length || 0,
+              gameLibrary: gameLibraryData?.length || 0
+            });
+            
+            setCurrentGame(currentGameData);
+            setGameSuggestions(suggestionsData || []);
+            
+            // Converter GameLibrary para TrophyTitle se disponível
+            if (gameLibraryData && gameLibraryData.length > 0) {
+              console.log('🔄 Convertendo GameLibrary para TrophyTitle...');
+              const convertedTitles = gameLibraryData.map(game => ({
+                npTitleId: game.id,
+                trophyTitleName: game.title,
+                trophyTitleIconUrl: game.iconUrl || '',
+                trophyTitlePlatform: game.platform,
+                hasTrophyGroups: false,
+                progress: game.isCompleted ? 100 : 0,
+                lastUpdatedDate: game.lastUpdated.toISOString()
+              }));
+              setTrophyTitles(convertedTitles);
+              console.log(`✅ ${convertedTitles.length} jogos convertidos e definidos`);
+            } else {
+              console.log('⚠️ GameLibrary vazia ou nula, não há jogos para converter');
+            }
+            
+            console.log('✅ Dados do Firebase carregados com sucesso');
+            
+          } catch (error) {
+            console.warn('⚠️ Erro ao carregar dados do Firebase:', error);
+            // Se Firebase falhar, continuar com PSN
+            throw error; // Re-throw para garantir que o catch do loadData funcione
+          }
+        };
 
-  const calculateStats = (gamesData: TrophyTitle[]): GameStats => {
-    const totalGames = gamesData.length;
-    const completedGames = gamesData.filter(game => game.progress === 100).length;
+  const loadPSNData = async () => {
+    console.log('🔄 Carregando dados do PSN...');
     
-    // Note: We'll need to fetch individual trophies to get accurate trophy counts
-    // For now, we'll estimate based on typical trophy counts
-    const estimatedTrophiesPerGame = 50; // Average trophies per game
-    const totalTrophies = totalGames * estimatedTrophiesPerGame;
-    const earnedTrophies = Math.round(totalTrophies * (gamesData.reduce((sum, game) => sum + game.progress, 0) / totalGames / 100));
-    
-    return {
-      totalGames,
-      completedGames,
-      totalTrophies,
-      earnedTrophies,
-      platinumTrophies: completedGames, // Each completed game has 1 platinum
-      goldTrophies: Math.round(earnedTrophies * 0.1), // Estimate 10% gold
-      silverTrophies: Math.round(earnedTrophies * 0.2), // Estimate 20% silver
-      bronzeTrophies: Math.round(earnedTrophies * 0.7) // Estimate 70% bronze
-    };
+    try {
+      // Carregar lista de jogos
+      const titles = await PSNService.getTrophyTitles();
+      console.log(`🎮 ${titles.length} jogos carregados do PSN`);
+      setTrophyTitles(titles);
+      
+      // Carregar perfil do usuário
+      const profile = await PSNService.getProfileSummary();
+      console.log('👤 Perfil carregado do PSN:', profile?.trophyLevel);
+      setProfileSummary(profile);
+      
+      console.log('✅ Dados do PSN carregados com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados do PSN:', error);
+      throw error;
+    }
   };
 
   const handleGameClick = async (game: TrophyTitle) => {
     try {
-      setLoading(true);
       setSelectedGame(game);
+      setLoading(true);
       
-      const trophiesData = await PSNService.getTrophiesForTitle(game.npTitleId);
-      setTrophies(trophiesData);
+             const gameTrophies = await PSNService.getTrophiesForTitle(game.npTitleId);
+      setTrophies(gameTrophies);
       
-    } catch (err) {
-      setError('Falha ao carregar troféus para este jogo.');
-      console.error('Error loading trophies:', err);
+    } catch (error) {
+      console.error('Error loading trophies:', error);
+      setError('Erro ao carregar troféus do jogo.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBackToGames = () => {
-    setSelectedGame(null);
-    setTrophies([]);
+  const handleSyncNow = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🚀 Iniciando sincronização manual...');
+      await SyncService.syncAllData();
+      
+      // Recarregar dados após sincronização
+      await loadData();
+      
+      console.log('✅ Sincronização manual concluída!');
+      
+    } catch (error) {
+      console.error('❌ Erro na sincronização manual:', error);
+      setError('Erro durante a sincronização. Verifique o console.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading && games.length === 0) {
-    return (
-      <div className="app">
-        <MockDataWarning />
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <h2>Carregando sua coleção de troféus...</h2>
-          <p>Conectando à PlayStation Network...</p>
-          {!serverStatus && (
-            <div className="server-warning">
-              <p>⚠️ Servidor proxy não está rodando. Por favor, inicie o servidor primeiro.</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+          const handleSyncGame = async (game: TrophyTitle) => {
+          try {
+            setLoading(true);
+            setError(null);
 
-  if (error && games.length === 0) {
+            console.log(`🎮 Sincronizando jogo específico: ${game.trophyTitleName}`);
+            await SyncService.syncSingleGame(game.npTitleId);
+
+            console.log(`✅ Jogo ${game.trophyTitleName} sincronizado!`);
+
+          } catch (error) {
+            console.error('❌ Erro ao sincronizar jogo:', error);
+            setError('Erro ao sincronizar jogo. Verifique o console.');
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        const toggleAutoSync = () => {
+          if (syncStatus.hasAutoSync) {
+            SyncService.stopAutoSync();
+          } else {
+            SyncService.setupAutoSync(30);
+          }
+          setSyncStatus(SyncService.getSyncStatus());
+        };
+
+        const handleSuggestionSubmit = async (suggestion: Omit<GameSuggestion, 'id' | 'suggestedAt' | 'status'>) => {
+          try {
+            const newSuggestion: GameSuggestion = {
+              ...suggestion,
+              id: Date.now().toString(),
+              suggestedAt: new Date(),
+              status: 'pending'
+            };
+            
+            await FirebaseService.addGameSuggestion(newSuggestion);
+            setGameSuggestions(prev => [...prev, newSuggestion]);
+            setShowSuggestionForm(false);
+            
+          } catch (error) {
+            console.error('Erro ao adicionar sugestão:', error);
+            setError('Erro ao adicionar sugestão.');
+          }
+        };
+
+  if (loading && trophyTitles.length === 0) {
     return (
-      <div className="app">
-        <MockDataWarning />
-        <div className="error-container">
-          <h2>❌ Erro</h2>
-          <p>{error}</p>
-          <button onClick={loadData} className="retry-button">
-            Tentar Novamente
-          </button>
-        </div>
+      <div className="App">
+              <header className="App-header">
+        <h1 
+          onDoubleClick={() => setCurrentView('sync')}
+          title="Duplo clique para acessar sincronização"
+          style={{ cursor: 'pointer' }}
+        >
+          🏆 FS Trophy Hub
+        </h1>
+        <PSNStatusIndicator />
+        <div className="loading">Carregando...</div>
+      </header>
       </div>
     );
   }
 
   return (
-    <div className="app">
-      <MockDataWarning />
-      <header className="app-header">
-        <div className="header-content">
-          <h1 className="app-title">
-            <span className="title-icon">🏆</span>
-            FS Trophy Hub
-            <span className="title-subtitle">by Front Sennin</span>
-          </h1>
-          
-          {profileSummary && (
-            <div className="profile-summary">
-              <div className="profile-level">
-                <span className="level-number">{profileSummary.trophyLevel}</span>
-                <span className="level-label">Nível</span>
-              </div>
-              <div className="profile-progress">
-                <span className="progress-text">{profileSummary.progress}%</span>
-                <span className="progress-label">para o próximo nível</span>
-              </div>
-            </div>
-          )}
-          
-          {stats && (
-            <div className="stats-container">
-              <div className="stat-item">
-                <span className="stat-number">{stats.totalGames}</span>
-                <span className="stat-label">Jogos</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">{stats.completedGames}</span>
-                <span className="stat-label">Completados</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">{stats.earnedTrophies}</span>
-                <span className="stat-label">Troféus</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">{stats.platinumTrophies}</span>
-                <span className="stat-label">Platinas</span>
-              </div>
-            </div>
-          )}
-        </div>
+    <div className="App">
+      <header className="App-header">
+        <h1 
+          onDoubleClick={() => setCurrentView('sync')}
+          title="Duplo clique para acessar sincronização"
+          style={{ cursor: 'pointer' }}
+        >
+          🏆 FS Trophy Hub
+        </h1>
+
+        {/* Navegação Principal */}
+        <nav className="main-navigation">
+          <button
+            onClick={() => setCurrentView('games')}
+            className={`nav-button ${currentView === 'games' ? 'active' : ''}`}
+          >
+            🎮 Jogos
+          </button>
+          <button
+            onClick={() => setCurrentView('currentGame')}
+            className={`nav-button ${currentView === 'currentGame' ? 'active' : ''}`}
+          >
+            🎯 Jogo Atual
+          </button>
+          <button
+            onClick={() => setCurrentView('suggestions')}
+            className={`nav-button ${currentView === 'suggestions' ? 'active' : ''}`}
+          >
+            💡 Sugestões
+          </button>
+
+
+        </nav>
       </header>
 
-      <main className="app-main">
-        {selectedGame ? (
-          <div className="trophies-view">
-            <div className="trophies-header">
-              <button onClick={handleBackToGames} className="back-button">
-                ← Voltar aos Jogos
-              </button>
-              <h2>{selectedGame.trophyTitleName}</h2>
-              <div className="game-progress-info">
-                <span>Progresso: {selectedGame.progress}%</span>
-              </div>
+      {error && (
+        <div className="error-message">
+          {error}
             </div>
-            
-            {loading ? (
-              <div className="loading-container">
-                <div className="loading-spinner"></div>
-                <p>Carregando troféus...</p>
+          )}
+          
+      
+
+      <main className="App-main">
+        {/* View: Jogos */}
+        {currentView === 'games' && (
+          <>
+            <section className="games-section">
+              <h2>🎮 Jogos ({trophyTitles.length})</h2>
+              <div className="games-grid">
+                {trophyTitles.map((game) => (
+                  <div key={game.npTitleId} className="game-item">
+                    <GameCard 
+                      game={game} 
+                      onClick={() => handleGameClick(game)}
+                    />
+
               </div>
-            ) : (
-              <div className="trophies-grid">
-                {trophies.map((trophy) => (
-                  <TrophyCard 
-                    key={trophy.trophyId} 
-                    trophy={trophy}
-                  />
                 ))}
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="games-view">
-            <div className="games-header">
-              <h2>Sua Coleção de Troféus</h2>
-              <div className="games-count">
-                {games.length} jogos encontrados
+            </section>
+
+            {selectedGame && (
+              <section className="trophies-section">
+                <h2>🏆 Troféus de {selectedGame.trophyTitleName}</h2>
+                <div className="trophies-grid">
+                  {trophies.map((trophy) => (
+                    <TrophyCard key={trophy.trophyId} trophy={trophy} />
+                  ))}
               </div>
+              </section>
+            )}
+          </>
+        )}
+
+        {/* View: Jogo Atual */}
+        {currentView === 'currentGame' && (
+          <section className="current-game-section">
+            <h2>🎯 Jogo Atual</h2>
+            {currentGame ? (
+              <CurrentGameCard currentGame={currentGame} />
+            ) : (
+              <div className="no-current-game">
+                <p>Nenhum jogo ativo no momento.</p>
+                <button className="set-current-game-btn">
+                  🎮 Definir Jogo Atual
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* View: Sugestões */}
+        {currentView === 'suggestions' && (
+          <section className="suggestions-section">
+            <div className="suggestions-header">
+              <h2>💡 Sugestões de Jogos</h2>
+              <button
+                onClick={() => setShowSuggestionForm(true)}
+                className="add-suggestion-btn"
+              >
+                ➕ Adicionar Sugestão
+              </button>
             </div>
             
-            <div className="games-grid">
-              {games.map((game) => (
-                <GameCard 
-                  key={game.npTitleId} 
-                  game={game}
-                  onClick={() => handleGameClick(game)}
-                />
+            <div className="suggestions-grid">
+              {gameSuggestions.map((suggestion) => (
+                <div key={suggestion.id} className="suggestion-card">
+                  <h3>{suggestion.gameTitle}</h3>
+                  <p><strong>Plataforma:</strong> {suggestion.platform}</p>
+                  <p><strong>Sugerido por:</strong> {suggestion.suggestedBy}</p>
+                  <p><strong>Status:</strong> 
+                    <span className={`status ${suggestion.status}`}>
+                      {suggestion.status}
+                    </span>
+                  </p>
+                  <p><strong>Data:</strong> {suggestion.suggestedAt.toLocaleDateString()}</p>
+                </div>
               ))}
-            </div>
+              </div>
+          </section>
+        )}
+
+
+
+        {/* View: Sincronização */}
+        {currentView === 'sync' && (
+          <section className="sync-section">
+            <h2>🔄 Sincronização PSN → Firebase</h2>
+            
+            {/* Perfil do Usuário */}
+            {profileSummary && (
+              <div className="profile-summary">
+                <h3>👤 Perfil do Usuário</h3>
+                <div className="profile-stats">
+                  <div className="stat">
+                    <span className="label">Nível:</span>
+                    <span className="value">{profileSummary.trophyLevel}</span>
+                  </div>
+                  <div className="stat">
+                    <span className="label">Progresso:</span>
+                    <span className="value">{profileSummary.progress}%</span>
+                  </div>
+                  <div className="stat">
+                    <span className="label">Tier:</span>
+                    <span className="value">{profileSummary.tier}</span>
+                  </div>
+                </div>
+                <div className="trophy-counts">
+                  <div className="trophy bronze">🥉 {profileSummary.earnedTrophies.bronze}</div>
+                  <div className="trophy silver">🥈 {profileSummary.earnedTrophies.silver}</div>
+                  <div className="trophy gold">🥇 {profileSummary.earnedTrophies.gold}</div>
+                  <div className="trophy platinum">💎 {profileSummary.earnedTrophies.platinum}</div>
+                </div>
+              </div>
+            )}
+            
+            {/* Controles de Sincronização */}
+            <div className="sync-controls">
+              <button
+                onClick={handleSyncNow}
+                disabled={syncStatus.isSyncing}
+                className="sync-button"
+              >
+                {syncStatus.isSyncing ? '🔄 Sincronizando...' : '🔄 Sincronizar Agora'}
+              </button>
+
+              <button
+                onClick={toggleAutoSync}
+                className={`auto-sync-button ${syncStatus.hasAutoSync ? 'active' : ''}`}
+              >
+                {syncStatus.hasAutoSync ? '⏹️ Parar Auto-Sync' : '⏰ Iniciar Auto-Sync'}
+              </button>
           </div>
+
+            {/* Status da Sincronização */}
+            <div className="sync-status">
+              <span className={`status-indicator ${syncStatus.isSyncing ? 'syncing' : 'idle'}`}>
+                {syncStatus.isSyncing ? '🔄 Sincronizando...' : '✅ Em espera'}
+              </span>
+              <span className="auto-sync-status">
+                {syncStatus.hasAutoSync ? '⏰ Auto-Sync ativo' : '⏹️ Auto-Sync parado'}
+              </span>
+            </div>
+            
+            {/* Informações de Sincronização */}
+            <div className="sync-info">
+              <h3>📊 Status da Sincronização</h3>
+              <div className="sync-stats">
+                <div className="sync-stat">
+                  <span className="label">Última Sincronização:</span>
+                  <span className="value">Em breve...</span>
+                </div>
+                <div className="sync-stat">
+                  <span className="label">Próxima Sincronização:</span>
+                  <span className="value">Em breve...</span>
+                </div>
+                <div className="sync-stat">
+                  <span className="label">Jogos Sincronizados:</span>
+                  <span className="value">{trophyTitles.length}</span>
+                </div>
+              </div>
+            </div>
+          </section>
         )}
       </main>
+
+      {/* Modal de Sugestão */}
+      {showSuggestionForm && (
+        <GameSuggestionForm
+          onSuggestionSubmitted={handleSuggestionSubmit}
+          onClose={() => setShowSuggestionForm(false)}
+        />
+      )}
     </div>
   );
 }
