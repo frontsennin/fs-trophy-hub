@@ -57,7 +57,7 @@ function App() {
       
       // No Vercel, não podemos sincronizar PSN, então vamos:
       // 1. Verificar se Firebase tem dados (pode ter sido populado por sincronização local)
-      // 2. Se não tiver, mostrar mensagem para sincronizar localmente
+      // 2. Se não tiver, popular com dados de teste
       
       console.log("🔄 Verificando dados existentes no Firebase...");
       await loadFirebaseData();
@@ -65,8 +65,26 @@ function App() {
       if (trophyTitles && trophyTitles.length > 0) {
         console.log("✅ Firebase já possui dados! Sincronização inicial bem-sucedida!");
       } else {
-        console.log("⚠️ Firebase ainda vazio no Vercel");
-        setError("Firebase não possui dados. Sincronize localmente primeiro, depois faça deploy.");
+        console.log("⚠️ Firebase vazio no Vercel, populando com dados de teste...");
+        
+        try {
+          // Popular Firebase com dados de teste
+          await FirebaseService.populateWithTestData();
+          console.log("✅ Firebase populado com dados de teste!");
+          
+          // Recarregar dados
+          await loadFirebaseData();
+          
+          if (trophyTitles && trophyTitles.length > 0) {
+            console.log("✅ Dados de teste carregados com sucesso!");
+          } else {
+            console.log("❌ Falha ao carregar dados de teste");
+            setError("Falha ao carregar dados de teste do Firebase.");
+          }
+        } catch (populateError) {
+          console.error("❌ Erro ao popular Firebase:", populateError);
+          setError("Erro ao popular Firebase com dados de teste. Verifique as regras de segurança.");
+        }
       }
     } catch (error) {
       console.error("❌ Erro na verificação inicial:", error);
@@ -524,6 +542,29 @@ function App() {
                 {syncStatus.hasAutoSync
                   ? "⏹️ Parar Auto-Sync"
                   : "⏰ Iniciar Auto-Sync"}
+              </button>
+              
+              {/* Botão para popular Firebase com dados de teste */}
+              <button
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    setError(null);
+                    console.log("🚀 Populando Firebase manualmente...");
+                    await FirebaseService.populateWithTestData();
+                    await loadFirebaseData();
+                    console.log("✅ Firebase populado manualmente com sucesso!");
+                  } catch (error) {
+                    console.error("❌ Erro ao popular Firebase:", error);
+                    setError("Erro ao popular Firebase. Verifique o console.");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                className="populate-button"
+              >
+                {loading ? "🚀 Populando..." : "🚀 Popular Firebase"}
               </button>
               </div>
 
