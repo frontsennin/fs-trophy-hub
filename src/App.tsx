@@ -18,11 +18,11 @@ import {
 
 function App() {
   const [trophyTitles, setTrophyTitles] = useState<TrophyTitle[]>([]);
+  const [filteredTrophyTitles, setFilteredTrophyTitles] = useState<TrophyTitle[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'trophies' | 'name' | 'progress' | 'platform' | 'date'>('trophies');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Debug: Log quando trophyTitles mudar
-  useEffect(() => {
-    console.log("🎮 trophyTitles atualizado:", trophyTitles.length, "jogos");
-  }, [trophyTitles]);
   const [selectedGame, setSelectedGame] = useState<TrophyTitle | null>(null);
   const [trophies, setTrophies] = useState<Trophy[]>([]);
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
@@ -49,6 +49,72 @@ function App() {
     setEnvInfo(info);
   };
 
+  // Função para filtrar e ordenar jogos
+  const filterAndSortGames = useCallback(() => {
+    let filtered = [...trophyTitles];
+    
+    // Aplicar filtro de busca
+    if (searchTerm) {
+      filtered = filtered.filter(game => 
+        game.trophyTitleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        game.trophyTitlePlatform.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    
+    // Aplicar ordenação
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortBy) {
+        case 'trophies':
+          // Ordenação por troféus: Platina > Ouro > Prata > Bronze
+          const aTrophies = a.earnedTrophies || { platinum: 0, gold: 0, silver: 0, bronze: 0 };
+          const bTrophies = b.earnedTrophies || { platinum: 0, gold: 0, silver: 0, bronze: 0 };
+          
+          // Calcular pontuação baseada nos troféus (pesos: Platina=1000, Ouro=100, Prata=10, Bronze=1)
+          const aScore = (aTrophies.platinum * 1000) + (aTrophies.gold * 100) + (aTrophies.silver * 10) + aTrophies.bronze;
+          const bScore = (bTrophies.platinum * 1000) + (bTrophies.gold * 100) + (bTrophies.silver * 10) + bTrophies.bronze;
+          
+          aValue = aScore;
+          bValue = bScore;
+          break;
+        case 'name':
+          aValue = a.trophyTitleName.toLowerCase();
+          bValue = b.trophyTitleName.toLowerCase();
+          break;
+        case 'progress':
+          aValue = a.progress;
+          bValue = b.progress;
+          break;
+        case 'platform':
+          aValue = a.trophyTitlePlatform.toLowerCase();
+          bValue = b.trophyTitlePlatform.toLowerCase();
+          break;
+        case 'date':
+          aValue = new Date(a.lastUpdatedDate).getTime();
+          bValue = new Date(b.lastUpdatedDate).getTime();
+          break;
+        default:
+          aValue = a.trophyTitleName.toLowerCase();
+          bValue = b.trophyTitleName.toLowerCase();
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+    
+    setFilteredTrophyTitles(filtered);
+  }, [trophyTitles, searchTerm, sortBy, sortOrder]);
+
+  // Atualizar lista filtrada quando trophyTitles ou filtros mudarem
+  useEffect(() => {
+    filterAndSortGames();
+  }, [filterAndSortGames]);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -56,24 +122,19 @@ function App() {
       
       // Se estamos no ambiente local (com proxy), carregar do PSN
       if (envInfo?.useProxy) {
-        console.log("🔄 Ambiente local detectado, carregando dados do PSN...");
         await loadPSNData();
-        console.log("✅ Dados do PSN carregados com sucesso");
       } else {
         // Se estamos no Vercel, tentar Firebase primeiro
         try {
-          console.log("🔄 Tentando carregar dados do Firebase...");
           await loadFirebaseData();
 
           // Verificar se Firebase retornou dados
           const currentTitles = await FirebaseService.getGameLibrary();
           if (!currentTitles || currentTitles.length === 0) {
-            console.log("🌐 Firebase vazio no Vercel");
             setError("Firebase não possui dados. Sincronize localmente primeiro, depois faça deploy.");
           }
         } catch (firebaseError) {
           console.warn("⚠️ Erro ao carregar dados do Firebase:", firebaseError);
-          console.log("🌐 Firebase falhou no Vercel");
           setError("Firebase falhou. Verifique a configuração e tente novamente.");
         }
       }
@@ -100,24 +161,42 @@ function App() {
       setSyncStatus(SyncService.getSyncStatus());
     }, 5000);
 
+    // 4. Processar hash da URL para navegação
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash === 'sync') {
+        setCurrentView('sync');
+      } else if (hash === 'games') {
+        setCurrentView('games');
+      } else if (hash === 'currentGame') {
+        setCurrentView('currentGame');
+      } else if (hash === 'suggestions') {
+        setCurrentView('suggestions');
+      }
+    };
+
+    // Processar hash inicial
+    handleHashChange();
+
+    // Adicionar listener para mudanças no hash
+    window.addEventListener('hashchange', handleHashChange);
+
     return () => {
       clearInterval(syncStatusInterval);
       SyncService.stopAutoSync();
+      window.removeEventListener('hashchange', handleHashChange);
     };
   }, []);
 
   // useEffect separado para loadData (depende de envInfo)
   useEffect(() => {
     if (envInfo) {
-      console.log("🌍 Ambiente carregado, iniciando carregamento de dados...");
       loadData();
     }
   }, [envInfo, loadData]);
 
   const loadFirebaseData = async () => {
     try {
-      console.log("🔄 Carregando dados do Firebase...");
-      console.log("🔍 Firebase: Verificando configuração...");
 
       // Carregar dados do Firebase
       const [currentGameData, suggestionsData, gameLibraryData] =
@@ -127,23 +206,15 @@ function App() {
           FirebaseService.getGameLibrary(),
         ]);
 
-      console.log("📊 Dados recebidos do Firebase:", {
-        currentGame: currentGameData,
-        suggestions: suggestionsData?.length || 0,
-        gameLibrary: gameLibraryData?.length || 0,
-      });
 
       setCurrentGame(currentGameData);
       setGameSuggestions(suggestionsData || []);
 
       // Os dados já estão no formato correto (TrophyTitle), não precisamos converter!
       if (gameLibraryData && gameLibraryData.length > 0) {
-        console.log("🔄 Dados do Firebase já estão no formato correto (TrophyTitle)");
-        console.log("🔍 Dados brutos do Firebase:", gameLibraryData.slice(0, 2));
         
         // Os dados já são TrophyTitle, só precisamos mapear alguns campos
         const processedTitles = gameLibraryData.map((game: any) => {
-          console.log("🔄 Processando jogo:", game);
           
           return {
             npTitleId: game.npTitleId || game.npCommunicationId || game.id,
@@ -157,18 +228,9 @@ function App() {
           };
         });
         
-        console.log("✅ Jogos processados:", processedTitles.slice(0, 2));
         setTrophyTitles(processedTitles);
-        console.log(
-          `✅ ${processedTitles.length} jogos processados e definidos`
-        );
-      } else {
-        console.log(
-          "⚠️ Firebase vazio, não há jogos para processar"
-        );
       }
 
-      console.log("✅ Dados do Firebase carregados com sucesso");
     } catch (error) {
       console.warn("⚠️ Erro ao carregar dados do Firebase:", error);
       
@@ -208,29 +270,16 @@ function App() {
   };
 
   const loadPSNData = async () => {
-    console.log("🔄 Carregando dados do PSN...");
 
     try {
       // Carregar lista de jogos
       const titles = await PSNService.getTrophyTitles();
-      console.log(`🎮 ${titles.length} jogos carregados do PSN`);
-      console.log('🔍 Primeiros 3 jogos:', titles.slice(0, 3).map(t => ({
-        npTitleId: t.npTitleId,
-        trophyTitleName: t.trophyTitleName,
-        trophyTitlePlatform: t.trophyTitlePlatform,
-        progress: t.progress
-      })));
-      
-      console.log("🔄 Definindo trophyTitles com dados do PSN...");
       setTrophyTitles(titles);
-      console.log("✅ trophyTitles definido com", titles.length, "jogos");
 
       // Carregar perfil do usuário
       const profile = await PSNService.getProfileSummary();
-      console.log("👤 Perfil carregado do PSN:", profile?.trophyLevel);
       setProfileSummary(profile);
 
-      console.log("✅ Dados do PSN carregados com sucesso");
     } catch (error) {
       console.error("❌ Erro ao carregar dados do PSN:", error);
       throw error;
@@ -264,13 +313,11 @@ function App() {
       setLoading(true);
       setError(null);
 
-      console.log("🚀 Iniciando sincronização manual...");
       await SyncService.syncAllData();
 
       // Recarregar dados após sincronização
       await loadData();
 
-      console.log("✅ Sincronização manual concluída!");
     } catch (error) {
       console.error("❌ Erro na sincronização manual:", error);
       setError("Erro durante a sincronização. Verifique o console.");
@@ -313,7 +360,10 @@ function App() {
       <div className="App">
         <header className="App-header">
           <h1
-            onDoubleClick={() => setCurrentView("sync")}
+            onDoubleClick={() => {
+              setCurrentView("sync");
+              window.location.hash = 'sync';
+            }}
             title="Duplo clique para acessar sincronização"
             style={{ cursor: "pointer" }}
           >
@@ -340,13 +390,19 @@ function App() {
         {/* Navegação Principal */}
         <nav className="main-navigation">
           <button
-            onClick={() => setCurrentView("games")}
+            onClick={() => {
+              setCurrentView("games");
+              window.location.hash = 'games';
+            }}
             className={`nav-button ${currentView === "games" ? "active" : ""}`}
           >
             🎮 Jogos
           </button>
           <button
-            onClick={() => setCurrentView("currentGame")}
+            onClick={() => {
+              setCurrentView("currentGame");
+              window.location.hash = 'currentGame';
+            }}
             className={`nav-button ${
               currentView === "currentGame" ? "active" : ""
             }`}
@@ -354,12 +410,24 @@ function App() {
             🎯 Jogo Atual
           </button>
           <button
-            onClick={() => setCurrentView("suggestions")}
+            onClick={() => {
+              setCurrentView("suggestions");
+              window.location.hash = 'suggestions';
+            }}
             className={`nav-button ${
-              currentView === "suggestions" ? "active" : ""
-            }`}
+              currentView === "suggestions" ? "active" : ""}`}
           >
             💡 Sugestões
+          </button>
+          <button
+            onClick={() => {
+              setCurrentView("sync");
+              window.location.hash = 'sync';
+            }}
+            className={`nav-button ${
+              currentView === "sync" ? "active" : ""}`}
+          >
+            🔄 Sync
           </button>
         </nav>
       </header>
@@ -371,22 +439,54 @@ function App() {
         {currentView === "games" && (
           <>
             <section className="games-section">
-              <h2>🎮 Jogos ({trophyTitles.length})</h2>
+              <div className="games-header">
+                <h2>🎮 Jogos ({filteredTrophyTitles.length} de {trophyTitles.length})</h2>
+                
+                {/* Controles de Busca e Ordenação */}
+                <div className="games-controls">
+                  {/* Input de Busca */}
+                  <div className="search-container">
+                    <input
+                      type="text"
+                      placeholder="🔍 Buscar jogos..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="search-input"
+                    />
+                  </div>
+                  
+                  {/* Ordenação */}
+                  <div className="sort-container">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="sort-select"
+                    >
+                      <option value="trophies">🏆 Troféus</option>
+                      <option value="name">📝 Nome</option>
+                      <option value="progress">📊 Progresso</option>
+                      <option value="platform">🎮 Plataforma</option>
+                      <option value="date">📅 Data</option>
+                    </select>
+                    
+                    <button
+                      onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                      className="sort-order-btn"
+                      title={`Ordenar ${sortOrder === 'asc' ? 'decrescente' : 'crescente'}`}
+                    >
+                      {sortOrder === 'asc' ? '⬆️' : '⬇️'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
               <div className="games-grid">
-                {trophyTitles.map((game) => {
+                {filteredTrophyTitles.map((game) => {
                   // Verificação de segurança
                   if (!game || !game.npTitleId) {
                     console.error('❌ Jogo inválido encontrado:', game);
                     return null;
                   }
-                  
-                  // Debug: Log de cada jogo sendo renderizado
-                  console.log('🎮 Renderizando jogo:', {
-                    npTitleId: game.npTitleId,
-                    trophyTitleName: game.trophyTitleName,
-                    trophyTitlePlatform: game.trophyTitlePlatform,
-                    progress: game.progress
-                  });
                   
                   return (
                     <div key={game.npTitleId} className="game-item">
@@ -398,6 +498,19 @@ function App() {
                   );
                 })}
               </div>
+              
+              {/* Mensagem quando não há resultados */}
+              {filteredTrophyTitles.length === 0 && searchTerm && (
+                <div className="no-results">
+                  <p>🔍 Nenhum jogo encontrado para "{searchTerm}"</p>
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    className="clear-search-btn"
+                  >
+                    Limpar busca
+                  </button>
+                </div>
+              )}
             </section>
 
             {selectedGame && (

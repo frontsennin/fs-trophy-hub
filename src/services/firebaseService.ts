@@ -43,7 +43,6 @@ export class FirebaseService {
       }
       
       await Promise.all(batch);
-      console.log(`✅ Sincronizados ${trophyTitles.length} jogos com Firebase`);
     } catch (error) {
       console.error('❌ Erro ao sincronizar trophy titles:', error);
       throw error;
@@ -66,7 +65,6 @@ export class FirebaseService {
       }
       
       await Promise.all(batch);
-      console.log(`✅ Sincronizados ${trophies.length} troféus para ${gameId}`);
     } catch (error) {
       console.error('❌ Erro ao sincronizar troféus:', error);
       throw error;
@@ -225,12 +223,6 @@ export class FirebaseService {
 
   static async getCurrentGame(): Promise<CurrentGame | null> {
     try {
-      console.log('🎮 Buscando jogo atual...');
-      console.log('🔍 Firebase: Configuração para currentGames:', {
-        projectId: db.app.options.projectId,
-        collection: 'currentGames'
-      });
-      
       // Query simplificada - apenas filtrar por status, sem ordenação complexa
       const q = query(
         collection(db, 'currentGames'),
@@ -241,7 +233,6 @@ export class FirebaseService {
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        console.log('ℹ️ Nenhum jogo ativo encontrado');
         return null;
       }
       
@@ -252,7 +243,6 @@ export class FirebaseService {
         ...doc.data()
       } as CurrentGame;
       
-      console.log('✅ Jogo atual encontrado:', currentGame.gameId);
       return currentGame;
       
     } catch (error) {
@@ -363,7 +353,6 @@ export class FirebaseService {
       }
       
       await Promise.all(batch);
-      console.log(`✅ Sincronizada biblioteca com ${games.length} jogos`);
     } catch (error) {
       console.error('❌ Erro ao sincronizar biblioteca:', error);
       throw error;
@@ -372,25 +361,17 @@ export class FirebaseService {
 
   static async getGameLibrary(): Promise<GameLibrary[]> {
     try {
-      console.log('🔍 Firebase: Buscando coleção trophyTitles...');
-      console.log('🔍 Firebase: Configuração:', {
-        projectId: db.app.options.projectId,
-        apiKey: db.app.options.apiKey ? '***' : 'undefined'
-      });
       
       // Query simplificada - sem ordenação para evitar necessidade de índice
       const querySnapshot = await getDocs(collection(db, 'trophyTitles'));
       
-      console.log(`📊 Firebase: Encontrados ${querySnapshot.docs.length} documentos na coleção trophyTitles`);
       
       if (querySnapshot.docs.length === 0) {
-        console.log('⚠️ Firebase: Coleção trophyTitles está vazia');
         return [];
       }
       
       const games = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        console.log(`📄 Firebase: Documento ${doc.id}:`, data);
         
         return {
           id: doc.id,
@@ -399,7 +380,6 @@ export class FirebaseService {
         };
       }) as GameLibrary[];
       
-      console.log(`✅ Firebase: ${games.length} jogos processados da biblioteca`);
       
       // Ordenar localmente por data de atualização (mais recente primeiro)
       return games.sort((a, b) => {

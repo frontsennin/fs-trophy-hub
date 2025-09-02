@@ -91,11 +91,63 @@ export default async function handler(req, res) {
         const authorization = await getValidTokens();
         console.log('🎮 Fetching trophy titles...');
         
-        const response = await getUserTitles(authorization, 'me');
+        // Tentar buscar com diferentes parâmetros para obter mais jogos
+        console.log('🔄 Tentando buscar jogos com parâmetros padrão...');
+        let response = await getUserTitles(authorization, 'me');
+        
+        // Se retornou menos de 100 jogos, tentar com parâmetros diferentes
+        if (response.trophyTitles.length < 100) {
+          console.log('⚠️ Poucos jogos encontrados, tentando com parâmetros alternativos...');
+          try {
+            // Tentar buscar com offset e limit
+            const alternativeResponse = await getUserTitles(authorization, 'me', { 
+              limit: 100,
+              offset: 0,
+              npLanguage: 'pt-BR'
+            });
+            
+            if (alternativeResponse.trophyTitles.length > response.trophyTitles.length) {
+              console.log(`✅ Encontrados ${alternativeResponse.trophyTitles.length} jogos com parâmetros alternativos`);
+              response = alternativeResponse;
+            }
+          } catch (error) {
+            console.log('⚠️ Parâmetros alternativos falharam, usando resposta padrão');
+          }
+        }
         
         console.log(`✅ Found ${response.trophyTitles.length} games`);
+        console.log('🔍 Response completo:', JSON.stringify(response, null, 2));
+        
+        // Log detalhado dos primeiros jogos
+        if (response.trophyTitles && response.trophyTitles.length > 0) {
+          console.log('🎮 Primeiros 5 jogos:');
+          response.trophyTitles.slice(0, 5).forEach((game, index) => {
+            console.log(`  ${index + 1}. ${game.trophyTitleName} (${game.trophyTitlePlatform}) - Progresso: ${game.progress}%`);
+            if (game.earnedTrophies) {
+              console.log(`     Troféus: P:${game.earnedTrophies.platinum} G:${game.earnedTrophies.gold} S:${game.earnedTrophies.silver} B:${game.earnedTrophies.bronze}`);
+            }
+          });
+        }
         
         res.status(200).json(response);
+        break;
+        
+      case 'trophy-titles-detailed':
+        const auth = await getValidTokens();
+        console.log('🎮 Fetching detailed trophy titles...');
+        
+        // Buscar com parâmetros mais detalhados
+        const detailedResponse = await getUserTitles(auth, 'me', {
+          limit: 1000, // Tentar buscar mais jogos
+          offset: 0,
+          npLanguage: 'pt-BR',
+          sortBy: 'lastUpdatedDate',
+          sortOrder: 'desc'
+        });
+        
+        console.log(`✅ Found ${detailedResponse.trophyTitles.length} games with detailed search`);
+        
+        res.status(200).json(detailedResponse);
         break;
 
       case 'trophies':

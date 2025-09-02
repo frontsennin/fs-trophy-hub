@@ -11,20 +11,6 @@ const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
   // Debug: Log dos dados recebidos usando useEffect
   useEffect(() => {
     if (game) {
-      console.log('🎮 GameCard recebeu:', {
-        npTitleId: game.npTitleId,
-        trophyTitleName: game.trophyTitleName,
-        trophyTitlePlatform: game.trophyTitlePlatform,
-        progress: game.progress,
-        trophyTitleIconUrl: game.trophyTitleIconUrl
-      });
-      
-      // Logs específicos de cada campo
-      console.log('🎮 Título do jogo:', game.trophyTitleName);
-      console.log('🎮 Plataforma do jogo:', game.trophyTitlePlatform);
-      console.log('🎮 Progresso do jogo:', game.progress);
-      console.log('🎮 Data de atualização:', game.lastUpdatedDate);
-      console.log('🎮 URL da imagem:', game.trophyTitleIconUrl);
     }
   }, [game]);
   

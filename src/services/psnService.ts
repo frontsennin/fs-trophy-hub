@@ -39,13 +39,6 @@ export class PSNService {
    * Inicializar e logar informações do ambiente
    */
   private static initializeEnvironment() {
-    console.log('🔍 PSNService - Detecção de Ambiente:');
-    console.log('  - NODE_ENV:', process.env.NODE_ENV);
-    console.log('  - Hostname:', window.location.hostname);
-    console.log('  - isDevelopment:', this.isDevelopment);
-    console.log('  - isLocalhost:', this.isLocalhost);
-    console.log('  - useProxy:', this.useProxy);
-    console.log('  - PROXY_URL:', this.PROXY_URL);
   }
   
   /**
@@ -63,7 +56,6 @@ export class PSNService {
       
       // Em produção (Vercel), NÃO tentar acessar PSN API
       if (this.isVercel) {
-        console.log('🌐 Ambiente Vercel detectado - usando apenas Firebase');
         return false; // Retorna false para forçar uso do Firebase
       }
       
@@ -80,9 +72,7 @@ export class PSNService {
    */
   private static async checkProxyStatus(): Promise<boolean> {
     try {
-      console.log('🔄 Verificando status do proxy local...');
       const response = await fetch(`${this.PROXY_URL}/status`);
-      console.log('✅ Proxy local respondendo:', response.status);
       return response.ok;
     } catch (error) {
       console.error('❌ Servidor proxy não está rodando:', error);
@@ -122,7 +112,6 @@ export class PSNService {
    */
   private static async authenticate(): Promise<boolean> {
     try {
-      console.log('🔐 Iniciando autenticação PSN...');
       
       // Se estamos usando proxy, fazer via proxy
       if (this.useProxy) {
@@ -130,15 +119,12 @@ export class PSNService {
       }
       
       // Autenticação direta (produção)
-      console.log('🌐 Usando autenticação direta PSN...');
       
       // 1. Trocar NPSSO por access code
       const accessCode = await exchangeNpssoForAccessCode(this.NPSSO_TOKEN);
-      console.log('✅ Access code obtido');
       
       // 2. Trocar access code por tokens
       const authResponse = await exchangeAccessCodeForAuthTokens(accessCode);
-      console.log('✅ Tokens de autenticação obtidos');
       
       // 3. Salvar tokens e calcular expiração
       this.authTokens = {
@@ -153,7 +139,6 @@ export class PSNService {
       this.tokenExpiry = new Date(now.getTime() + authResponse.expiresIn * 1000);
       this.refreshTokenExpiry = new Date(now.getTime() + authResponse.refreshTokenExpiresIn * 1000);
       
-      console.log('✅ Autenticação PSN concluída com sucesso!');
       return true;
       
     } catch (error) {
@@ -167,7 +152,6 @@ export class PSNService {
    */
   private static async authenticateViaProxy(): Promise<boolean> {
     try {
-      console.log('🔄 Usando proxy local para autenticação...');
       
       const response = await fetch(`${this.PROXY_URL}/auth`, {
         method: 'POST',
@@ -196,7 +180,6 @@ export class PSNService {
       this.tokenExpiry = new Date(now.getTime() + authData.expiresIn * 1000);
       this.refreshTokenExpiry = new Date(now.getTime() + authData.refreshTokenExpiresIn * 1000);
       
-      console.log('✅ Autenticação via proxy concluída!');
       return true;
       
     } catch (error) {
@@ -214,7 +197,6 @@ export class PSNService {
         throw new Error('Refresh token não disponível');
       }
       
-      console.log('🔄 Renovando tokens PSN...');
       
       // Se estamos usando proxy, renovar via proxy
       if (this.useProxy) {
@@ -237,7 +219,6 @@ export class PSNService {
       this.tokenExpiry = new Date(now.getTime() + authResponse.expiresIn * 1000);
       this.refreshTokenExpiry = new Date(now.getTime() + authResponse.refreshTokenExpiresIn * 1000);
       
-      console.log('✅ Tokens PSN renovados com sucesso!');
       return true;
       
     } catch (error) {
@@ -279,7 +260,6 @@ export class PSNService {
       this.tokenExpiry = new Date(now.getTime() + authData.expiresIn * 1000);
       this.refreshTokenExpiry = new Date(now.getTime() + authData.refreshTokenExpiresIn * 1000);
       
-      console.log('✅ Tokens renovados via proxy!');
       return true;
       
     } catch (error) {
@@ -315,7 +295,6 @@ export class PSNService {
         throw new Error('Falha na autenticação PSN');
       }
       
-      console.log('🎮 Buscando lista de jogos do PSN...');
       
       const response = await getUserTitles(this.getAuthorizationPayload(), 'me');
       
@@ -343,7 +322,6 @@ export class PSNService {
         lastUpdatedDate: title.lastUpdatedDateTime || new Date().toISOString()
       }));
       
-      console.log(`✅ ${trophyTitles.length} jogos encontrados no PSN`);
       return trophyTitles;
       
     } catch (error) {
@@ -357,8 +335,9 @@ export class PSNService {
    */
   private static async getTrophyTitlesViaProxy(): Promise<TrophyTitle[]> {
     try {
-      console.log('🔄 Buscando jogos via proxy local...');
       
+      // Usar a rota principal que tem paginação inteligente
+      console.log('🔄 Buscando jogos com paginação inteligente...');
       const response = await fetch(`${this.PROXY_URL}/trophy-titles`);
       
       if (!response.ok) {
@@ -392,15 +371,6 @@ export class PSNService {
           progress: title.progress || 0,
           lastUpdatedDate: title.lastUpdatedDateTime || new Date().toISOString()
         }));
-      
-      // DEBUG: Log dos dados convertidos
-      console.log('🔍 Dados convertidos:', trophyTitles.slice(0, 3).map(t => ({
-        npTitleId: t.npTitleId,
-        trophyTitleName: t.trophyTitleName,
-        trophyTitlePlatform: t.trophyTitlePlatform
-      })));
-      
-      console.log(`✅ ${trophyTitles.length} jogos encontrados via proxy`);
       return trophyTitles;
       
     } catch (error) {
@@ -425,7 +395,6 @@ export class PSNService {
         throw new Error('Falha na autenticação PSN');
       }
       
-      console.log(`🏆 Buscando troféus para jogo ${npTitleId}...`);
       
       // Determinar se é PS4/PS3/PSVita (precisa de npServiceName: "trophy")
       const isLegacyPlatform = npTitleId.includes('NPWR') || npTitleId.includes('NPXX');
@@ -470,7 +439,6 @@ export class PSNService {
         }
       });
       
-      console.log(`✅ ${trophies.length} troféus encontrados para o jogo`);
       return trophies;
       
     } catch (error) {
@@ -484,7 +452,6 @@ export class PSNService {
    */
   private static async getTrophiesViaProxy(npTitleId: string): Promise<Trophy[]> {
     try {
-      console.log(`🔄 Buscando troféus via proxy para ${npTitleId}...`);
       
       const response = await fetch(`${this.PROXY_URL}/trophies/${npTitleId}`);
       
@@ -493,19 +460,6 @@ export class PSNService {
       }
       
       const data = await response.json();
-      
-      // DEBUG: Log da estrutura dos dados retornados
-      console.log('🔍 Dados retornados pelo proxy:', data);
-      console.log('🔍 Estrutura dos títulos:', data.trophyTitles?.map((t: any) => ({
-        npCommunicationId: t.npCommunicationId,
-        trophyTitleName: t.trophyTitleName,
-        trophyTitlePlatform: t.trophyTitlePlatform
-      })));
-      console.log('🔍 Tipo de data:', typeof data);
-      console.log('🔍 Chaves de data:', Object.keys(data));
-      console.log('🔍 data.trophies existe?', !!data.trophies);
-      console.log('🔍 Tipo de data.trophies:', typeof data.trophies);
-      console.log('🔍 É array?', Array.isArray(data.trophies));
       
       // Validação robusta da estrutura dos dados
       if (!data || typeof data !== 'object') {
@@ -518,7 +472,6 @@ export class PSNService {
         
         // Tentar encontrar troféus em outras estruturas possíveis
         if (Array.isArray(data)) {
-          console.log('🔄 Dados são um array direto, tratando como lista de troféus');
           return this.convertTrophyData(data);
         }
         
@@ -527,7 +480,6 @@ export class PSNService {
         return [];
       }
       
-      console.log(`✅ ${data.trophies.length} troféus encontrados via proxy`);
       return this.convertTrophyData(data.trophies);
       
     } catch (error) {
@@ -571,7 +523,6 @@ export class PSNService {
         throw new Error('Falha na autenticação PSN');
       }
       
-      console.log('👤 Buscando resumo do perfil PSN...');
       
       const response = await getUserTrophyProfileSummary(this.getAuthorizationPayload(), 'me');
       
@@ -588,7 +539,6 @@ export class PSNService {
         }
       };
       
-      console.log('✅ Resumo do perfil PSN obtido com sucesso!');
       return profileSummary;
       
     } catch (error) {
@@ -602,7 +552,6 @@ export class PSNService {
    */
   private static async getProfileSummaryViaProxy(): Promise<ProfileSummary | null> {
     try {
-      console.log('🔄 Buscando perfil via proxy local...');
         
       const response = await fetch(`${this.PROXY_URL}/profile-summary`);
       
@@ -625,7 +574,6 @@ export class PSNService {
         }
       };
       
-      console.log('✅ Resumo do perfil obtido via proxy!');
       return profileSummary;
       
     } catch (error) {
@@ -650,7 +598,6 @@ export class PSNService {
         throw new Error('Falha na autenticação PSN');
       }
       
-      console.log(`🔍 Buscando usuário: ${username}...`);
       
       const response = await makeUniversalSearch(
         this.getAuthorizationPayload(),
@@ -660,11 +607,9 @@ export class PSNService {
       
       if (response.domainResponses[0]?.results?.[0]?.socialMetadata?.accountId) {
         const accountId = response.domainResponses[0].results[0].socialMetadata.accountId;
-        console.log(`✅ Usuário encontrado: ${accountId}`);
         return accountId;
       }
       
-      console.log('❌ Usuário não encontrado');
       return null;
       
     } catch (error) {
@@ -678,7 +623,6 @@ export class PSNService {
    */
   private static async searchUserViaProxy(username: string): Promise<string | null> {
     try {
-      console.log(`🔄 Buscando usuário via proxy: ${username}...`);
       
       const response = await fetch(`${this.PROXY_URL}/search-user?username=${encodeURIComponent(username)}`);
       
@@ -689,11 +633,9 @@ export class PSNService {
       const data = await response.json();
       
       if (data.accountId) {
-        console.log(`✅ Usuário encontrado via proxy: ${data.accountId}`);
         return data.accountId;
       }
       
-      console.log('❌ Usuário não encontrado via proxy');
       return null;
       
     } catch (error) {
@@ -709,7 +651,6 @@ export class PSNService {
     this.authTokens = null;
     this.tokenExpiry = null;
     this.refreshTokenExpiry = null;
-    console.log('🗑️ Tokens PSN limpos');
   }
   
   /**

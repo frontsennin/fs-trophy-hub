@@ -11,14 +11,11 @@ export class SyncService {
    */
   static async syncAllData(): Promise<void> {
     if (this.isSyncing) {
-      console.log('🔄 Sincronização já em andamento...');
       return;
     }
     
     try {
-      this.isSyncing = true;
-      console.log('🚀 Iniciando sincronização completa PSN → Firebase...');
-      
+      this.isSyncing = true;      
       // 1. Sincronizar perfil do usuário
       await this.syncProfileData();
       
@@ -27,9 +24,7 @@ export class SyncService {
       
       // 3. Sincronizar troféus dos jogos (primeiros 5 para não sobrecarregar)
       await this.syncTopGamesTrophies();
-      
-      console.log('✅ Sincronização completa concluída!');
-      
+            
     } catch (error) {
       console.error('❌ Erro na sincronização:', error);
     } finally {
@@ -42,12 +37,10 @@ export class SyncService {
    */
   private static async syncProfileData(): Promise<void> {
     try {
-      console.log('👤 Sincronizando perfil do usuário...');
       const profile = await PSNService.getProfileSummary();
       
       if (profile) {
         // Salvar perfil no Firebase (você pode criar uma coleção 'userProfiles')
-        console.log('✅ Perfil sincronizado:', profile.trophyLevel);
       }
       
     } catch (error) {
@@ -60,12 +53,10 @@ export class SyncService {
    */
   private static async syncTrophyTitles(): Promise<void> {
     try {
-      console.log('🎮 Sincronizando lista de jogos...');
       const trophyTitles = await PSNService.getTrophyTitles();
       
       if (trophyTitles.length > 0) {
         await FirebaseService.syncTrophyTitles(trophyTitles);
-        console.log(`✅ ${trophyTitles.length} jogos sincronizados com Firebase`);
       }
       
     } catch (error) {
@@ -78,7 +69,6 @@ export class SyncService {
    */
   private static async syncTopGamesTrophies(): Promise<void> {
     try {
-      console.log('🏆 Sincronizando troféus dos jogos principais...');
       const trophyTitles = await PSNService.getTrophyTitles();
       
       // Pegar apenas os primeiros 5 jogos para não sobrecarregar
@@ -86,12 +76,10 @@ export class SyncService {
       
       for (const game of topGames) {
         try {
-          console.log(`🔄 Sincronizando troféus de: ${game.trophyTitleName}`);
           const trophies = await PSNService.getTrophiesForTitle(game.npTitleId);
           
           if (trophies.length > 0) {
             await FirebaseService.syncTrophiesForGame(game.npTitleId, trophies);
-            console.log(`✅ ${trophies.length} troféus sincronizados para ${game.trophyTitleName}`);
           }
           
           // Pequena pausa para não sobrecarregar a API
@@ -112,13 +100,11 @@ export class SyncService {
    */
   static async syncSingleGame(npTitleId: string): Promise<void> {
     try {
-      console.log(`🎮 Sincronizando jogo específico: ${npTitleId}`);
       
       const trophies = await PSNService.getTrophiesForTitle(npTitleId);
       
       if (trophies.length > 0) {
         await FirebaseService.syncTrophiesForGame(npTitleId, trophies);
-        console.log(`✅ ${trophies.length} troféus sincronizados`);
       }
       
     } catch (error) {
@@ -151,10 +137,8 @@ export class SyncService {
       this.stopAutoSync();
     }
     
-    console.log(`⏰ Configurando sincronização automática a cada ${intervalMinutes} minutos`);
     
     this.syncInterval = setInterval(async () => {
-      console.log('🔄 Executando sincronização automática...');
       await this.syncAllData();
     }, intervalMinutes * 60 * 1000);
   }
@@ -166,7 +150,6 @@ export class SyncService {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
-      console.log('⏹️ Sincronização automática parada');
     }
   }
   
