@@ -13,6 +13,7 @@ const PSNStatusIndicator: React.FC = () => {
   const [environmentInfo, setEnvironmentInfo] = useState<{
     isDevelopment: boolean;
     isLocalhost: boolean;
+    isVercel: boolean;
     useProxy: boolean;
     proxyUrl: string;
     productionUrl: string;
