@@ -54,9 +54,6 @@ function App() {
       setLoading(true);
       setError(null);
 
-      // Verificar status do servidor
-      const isServerRunning = await PSNService.checkServerStatus();
-
       // Carregar dados do Firebase primeiro (sempre)
       try {
         console.log("🔄 Tentando carregar dados do Firebase...");
