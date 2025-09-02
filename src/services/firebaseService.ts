@@ -372,19 +372,19 @@ export class FirebaseService {
 
   static async getGameLibrary(): Promise<GameLibrary[]> {
     try {
-      console.log('🔍 Firebase: Buscando coleção gameLibrary...');
+      console.log('🔍 Firebase: Buscando coleção trophyTitles...');
       console.log('🔍 Firebase: Configuração:', {
         projectId: db.app.options.projectId,
         apiKey: db.app.options.apiKey ? '***' : 'undefined'
       });
       
       // Query simplificada - sem ordenação para evitar necessidade de índice
-      const querySnapshot = await getDocs(collection(db, 'gameLibrary'));
+      const querySnapshot = await getDocs(collection(db, 'trophyTitles'));
       
-      console.log(`📊 Firebase: Encontrados ${querySnapshot.docs.length} documentos na coleção gameLibrary`);
+      console.log(`📊 Firebase: Encontrados ${querySnapshot.docs.length} documentos na coleção trophyTitles`);
       
       if (querySnapshot.docs.length === 0) {
-        console.log('⚠️ Firebase: Coleção gameLibrary está vazia');
+        console.log('⚠️ Firebase: Coleção trophyTitles está vazia');
         return [];
       }
       
@@ -409,7 +409,7 @@ export class FirebaseService {
       });
       
     } catch (error) {
-      console.error('❌ Erro ao buscar biblioteca:', error);
+      console.error('❌ Erro ao buscar trophyTitles:', error);
       
       // Tratamento específico de erros do Firebase
       if (error instanceof Error) {
@@ -430,7 +430,7 @@ export class FirebaseService {
         }
         
         // Verificar se é erro de configuração
-        if (error.message.includes('config') || error.message.includes('invalid')) {
+        if (error.message.includes('config') || error.message.includes('Permission denied')) {
           console.error('⚙️ Erro de configuração do Firebase');
         }
       }
@@ -576,82 +576,5 @@ export class FirebaseService {
     }
   }
 
-  // ===== POPULAR FIREBASE COM DADOS DE TESTE =====
-  
-  static async populateWithTestData(): Promise<void> {
-    try {
-      console.log('🚀 Populando Firebase com dados de teste...');
-      
-      // Verificar se já tem dados
-      const existingGames = await this.getGameLibrary();
-      if (existingGames.length > 0) {
-        console.log('✅ Firebase já possui dados, pulando população');
-        return;
-      }
-      
-      // Dados de teste para gameLibrary
-      const testGames: Omit<GameLibrary, 'id'>[] = [
-        {
-          title: 'God of War Ragnarök',
-          platform: 'PS5',
-          iconUrl: 'https://image.api.playstation.com/vulcan/ap/rnd/202207/1210/4xJtXB3biDoQoGohZDcqIdmi.jpg',
-          genre: 'Action-Adventure',
-          releaseDate: '2022-11-09',
-          lastUpdated: new Date(),
-          isOwned: true,
-          isCompleted: false
-        },
-        {
-          title: 'Spider-Man 2',
-          platform: 'PS5',
-          iconUrl: 'https://image.api.playstation.com/vulcan/ap/rnd/202306/1214/2c7c3c3c3c3c3c3c3c3c3c3c3c3c3c3c.jpg',
-          genre: 'Action-Adventure',
-          releaseDate: '2023-10-20',
-          lastUpdated: new Date(),
-          isOwned: true,
-          isCompleted: false
-        },
-        {
-          title: 'Final Fantasy XVI',
-          platform: 'PS5',
-          iconUrl: 'https://image.api.playstation.com/vulcan/ap/rnd/202306/1214/4c7c3c3c3c3c3c3c3c3c3c3c3c3c3c3c.jpg',
-          genre: 'RPG',
-          releaseDate: '2023-06-22',
-          lastUpdated: new Date(),
-          isOwned: true,
-          isCompleted: false
-        }
-      ];
-      
-      // Adicionar jogos de teste
-      for (const game of testGames) {
-        await addDoc(collection(db, 'gameLibrary'), {
-          ...game,
-          lastUpdated: serverTimestamp()
-        });
-      }
-      
-      console.log(`✅ ${testGames.length} jogos de teste adicionados ao Firebase`);
-      
-      // Adicionar sugestão de teste
-      await addDoc(collection(db, 'gameSuggestions'), {
-        gameTitle: 'Baldur\'s Gate 3',
-        platform: 'PS5',
-        suggestedBy: 'Sistema',
-        suggestedAt: serverTimestamp(),
-        status: 'pending',
-        userInfo: {
-          name: 'Sistema',
-          isAnonymous: false
-        },
-        reason: 'Jogo de teste para verificar funcionamento'
-      });
-      
-      console.log('✅ Sugestão de teste adicionada ao Firebase');
-      
-    } catch (error) {
-      console.error('❌ Erro ao popular Firebase com dados de teste:', error);
-      throw error;
-    }
-  }
+
 }

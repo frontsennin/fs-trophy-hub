@@ -4,9 +4,10 @@ service cloud.firestore {
     // Permitir acesso público às coleções principais (para desenvolvimento)
     // Em produção, você deve implementar autenticação adequada
     
-    // Biblioteca de jogos - permitir leitura e escrita
-    match /gameLibrary/{document} {
-      allow read, write: if true;
+    // Títulos de troféus - permitir apenas leitura (consumir)
+    match /trophyTitles/{document} {
+      allow read: if true;
+      allow write: if false; // Apenas leitura, não atualizar
     }
     
     // Jogos atuais - permitir leitura e escrita

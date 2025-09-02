@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { TrophyTitle } from '../types';
 import './GameCard.css';
 
@@ -8,7 +8,33 @@ interface GameCardProps {
 }
 
 const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
-  const getPlatformIcon = (platform: string) => {
+  // Debug: Log dos dados recebidos usando useEffect
+  useEffect(() => {
+    if (game) {
+      console.log('🎮 GameCard recebeu:', {
+        npTitleId: game.npTitleId,
+        trophyTitleName: game.trophyTitleName,
+        trophyTitlePlatform: game.trophyTitlePlatform,
+        progress: game.progress,
+        trophyTitleIconUrl: game.trophyTitleIconUrl
+      });
+      
+      // Logs específicos de cada campo
+      console.log('🎮 Título do jogo:', game.trophyTitleName);
+      console.log('🎮 Plataforma do jogo:', game.trophyTitlePlatform);
+      console.log('🎮 Progresso do jogo:', game.progress);
+      console.log('🎮 Data de atualização:', game.lastUpdatedDate);
+      console.log('🎮 URL da imagem:', game.trophyTitleIconUrl);
+    }
+  }, [game]);
+  
+  // Verificação de segurança
+  if (!game) {
+    console.error('❌ GameCard recebeu game undefined/null');
+    return <div className="game-card error">Erro: Dados do jogo inválidos</div>;
+  }
+  const getPlatformIcon = (platform?: string) => {
+    if (!platform) return '🎮';
     if (platform.includes('PS5')) return '🎮';
     if (platform.includes('PS4')) return '🎮';
     if (platform.includes('PS3')) return '🎮';
@@ -27,8 +53,8 @@ const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
     <div className="game-card" onClick={onClick}>
       <div className="game-header">
         <img 
-          src={game.trophyTitleIconUrl} 
-          alt={game.trophyTitleName}
+          src={game.trophyTitleIconUrl || 'https://via.placeholder.com/100x100?text=🎮'} 
+          alt={game.trophyTitleName || 'Jogo'}
           className="game-icon"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
@@ -36,10 +62,14 @@ const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
           }}
         />
         <div className="game-info">
-          <h3 className="game-title">{game.trophyTitleName}</h3>
+          <h3 className="game-title">
+            {game.trophyTitleName || 'Jogo sem nome'}
+          </h3>
           <div className="game-platform">
             <span className="platform-icon">{getPlatformIcon(game.trophyTitlePlatform)}</span>
-            <span className="platform-name">{game.trophyTitlePlatform}</span>
+            <span className="platform-name">
+              {game.trophyTitlePlatform || 'Plataforma não especificada'}
+            </span>
           </div>
         </div>
       </div>
@@ -54,7 +84,9 @@ const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
             }}
           ></div>
         </div>
-        <span className="progress-text">{game.progress}%</span>
+        <span className="progress-text">
+          {game.progress || 0}%
+        </span>
       </div>
 
       <div className="game-footer">
@@ -69,7 +101,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, onClick }) => {
           )}
         </div>
         <span className="last-updated">
-          Atualizado: {new Date(game.lastUpdatedDate).toLocaleDateString('pt-BR')}
+          Atualizado: {new Date(game.lastUpdatedDate || new Date()).toLocaleDateString('pt-BR')}
         </span>
       </div>
 

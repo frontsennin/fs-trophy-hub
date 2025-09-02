@@ -29,6 +29,16 @@
       ]
     },
     {
+      "collectionGroup": "trophyTitles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "lastUpdated",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "youtubeVideos",
       "queryScope": "COLLECTION",
       "fields": [

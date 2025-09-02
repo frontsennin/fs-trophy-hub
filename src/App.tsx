@@ -65,26 +65,8 @@ function App() {
       if (trophyTitles && trophyTitles.length > 0) {
         console.log("✅ Firebase já possui dados! Sincronização inicial bem-sucedida!");
       } else {
-        console.log("⚠️ Firebase vazio no Vercel, populando com dados de teste...");
-        
-        try {
-          // Popular Firebase com dados de teste
-          await FirebaseService.populateWithTestData();
-          console.log("✅ Firebase populado com dados de teste!");
-          
-          // Recarregar dados
-          await loadFirebaseData();
-          
-          if (trophyTitles && trophyTitles.length > 0) {
-            console.log("✅ Dados de teste carregados com sucesso!");
-          } else {
-            console.log("❌ Falha ao carregar dados de teste");
-            setError("Falha ao carregar dados de teste do Firebase.");
-          }
-        } catch (populateError) {
-          console.error("❌ Erro ao popular Firebase:", populateError);
-          setError("Erro ao popular Firebase com dados de teste. Verifique as regras de segurança.");
-        }
+        console.log("⚠️ Firebase vazio no Vercel");
+        setError("Firebase não possui dados. Sincronize localmente primeiro, depois faça deploy.");
       }
     } catch (error) {
       console.error("❌ Erro na verificação inicial:", error);
@@ -98,37 +80,26 @@ function App() {
       setLoading(true);
       setError(null);
       
-      // Carregar dados do Firebase primeiro (sempre)
-      try {
-        console.log("🔄 Tentando carregar dados do Firebase...");
-        await loadFirebaseData();
-
-        // Se Firebase não retornou dados, verificar se precisamos sincronizar
-        if (!trophyTitles || trophyTitles.length === 0) {
-          if (envInfo?.useProxy) {
-            // Local: Firebase vazio, carregar do PSN
-            console.log("🔄 Firebase vazio, carregando dados do PSN...");
-            await loadPSNData();
-          } else {
-            // Vercel: Firebase vazio, tentar sincronização inicial
-            console.log("🌐 Firebase vazio no Vercel, tentando sincronização inicial...");
-            await handleInitialSync();
-          }
-        }
-      } catch (firebaseError) {
-        console.warn(
-          "⚠️ Erro ao carregar dados do Firebase:",
-          firebaseError
-        );
-        
-        if (envInfo?.useProxy) {
-          // Local: Firebase falhou, tentar PSN
-          console.log("🔄 Tentando carregar dados do PSN como fallback...");
-          await loadPSNData();
+      // Se estamos no ambiente local (com proxy), carregar do PSN
+      if (envInfo?.useProxy) {
+        console.log("🔄 Ambiente local detectado, carregando dados do PSN...");
+        await loadPSNData();
+        console.log("✅ Dados do PSN carregados, trophyTitles agora tem:", trophyTitles.length, "jogos");
       } else {
-          // Vercel: Firebase falhou, tentar sincronização inicial
-          console.log("🌐 Firebase falhou no Vercel, tentando sincronização inicial...");
-          await handleInitialSync();
+        // Se estamos no Vercel, tentar Firebase primeiro
+        try {
+          console.log("🔄 Tentando carregar dados do Firebase...");
+          await loadFirebaseData();
+
+          // Se Firebase não retornou dados, mostrar erro
+          if (!trophyTitles || trophyTitles.length === 0) {
+            console.log("🌐 Firebase vazio no Vercel");
+            setError("Firebase não possui dados. Sincronize localmente primeiro, depois faça deploy.");
+          }
+        } catch (firebaseError) {
+          console.warn("⚠️ Erro ao carregar dados do Firebase:", firebaseError);
+          console.log("🌐 Firebase falhou no Vercel");
+          setError("Firebase falhou. Verifique a configuração e tente novamente.");
         }
       }
 
@@ -140,7 +111,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [envInfo?.useProxy, trophyTitles, handleInitialSync]);
+  }, [envInfo?.useProxy]);
 
   useEffect(() => {
     // 1. Carregar informações do ambiente primeiro
@@ -164,9 +135,10 @@ function App() {
   useEffect(() => {
     if (envInfo) {
       console.log("🌍 Ambiente carregado, iniciando carregamento de dados...");
-    loadData();
+      console.log("🔍 Estado atual de trophyTitles:", trophyTitles.length, "jogos");
+      loadData();
     }
-  }, [envInfo, loadData]);
+  }, [envInfo]); // Removido loadData das dependências para evitar loop infinito
 
   const loadFirebaseData = async () => {
     try {
@@ -258,7 +230,16 @@ function App() {
       // Carregar lista de jogos
       const titles = await PSNService.getTrophyTitles();
       console.log(`🎮 ${titles.length} jogos carregados do PSN`);
+      console.log('🔍 Primeiros 3 jogos:', titles.slice(0, 3).map(t => ({
+        npTitleId: t.npTitleId,
+        trophyTitleName: t.trophyTitleName,
+        trophyTitlePlatform: t.trophyTitlePlatform,
+        progress: t.progress
+      })));
+      
+      console.log("🔄 Definindo trophyTitles com dados do PSN...");
       setTrophyTitles(titles);
+      console.log("✅ trophyTitles definido com", titles.length, "jogos");
 
       // Carregar perfil do usuário
       const profile = await PSNService.getProfileSummary();
@@ -274,6 +255,13 @@ function App() {
 
   const handleGameClick = async (game: TrophyTitle) => {
     try {
+      // Verificação de segurança
+      if (!game || !game.npTitleId) {
+        console.error('❌ Tentativa de clicar em jogo inválido:', game);
+        setError("Jogo inválido selecionado.");
+        return;
+      }
+      
       setSelectedGame(game);
       setLoading(true);
 
@@ -401,14 +389,30 @@ function App() {
             <section className="games-section">
               <h2>🎮 Jogos ({trophyTitles.length})</h2>
               <div className="games-grid">
-                {trophyTitles.map((game) => (
-                  <div key={game.npTitleId} className="game-item">
-                    <GameCard
-                      game={game}
-                      onClick={() => handleGameClick(game)}
-                    />
-                  </div>
-                ))}
+                {trophyTitles.map((game) => {
+                  // Verificação de segurança
+                  if (!game || !game.npTitleId) {
+                    console.error('❌ Jogo inválido encontrado:', game);
+                    return null;
+                  }
+                  
+                  // Debug: Log de cada jogo sendo renderizado
+                  console.log('🎮 Renderizando jogo:', {
+                    npTitleId: game.npTitleId,
+                    trophyTitleName: game.trophyTitleName,
+                    trophyTitlePlatform: game.trophyTitlePlatform,
+                    progress: game.progress
+                  });
+                  
+                  return (
+                    <div key={game.npTitleId} className="game-item">
+                      <GameCard
+                        game={game}
+                        onClick={() => handleGameClick(game)}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </section>
 
@@ -544,28 +548,7 @@ function App() {
                   : "⏰ Iniciar Auto-Sync"}
               </button>
               
-              {/* Botão para popular Firebase com dados de teste */}
-              <button
-                onClick={async () => {
-                  try {
-                    setLoading(true);
-                    setError(null);
-                    console.log("🚀 Populando Firebase manualmente...");
-                    await FirebaseService.populateWithTestData();
-                    await loadFirebaseData();
-                    console.log("✅ Firebase populado manualmente com sucesso!");
-                  } catch (error) {
-                    console.error("❌ Erro ao popular Firebase:", error);
-                    setError("Erro ao popular Firebase. Verifique o console.");
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                disabled={loading}
-                className="populate-button"
-              >
-                {loading ? "🚀 Populando..." : "🚀 Popular Firebase"}
-              </button>
+
               </div>
 
             {/* Status da Sincronização */}

@@ -368,28 +368,37 @@ export class PSNService {
       const data = await response.json();
       
       // Converter para o formato que esperamos
-      const trophyTitles: TrophyTitle[] = data.trophyTitles.map((title: any) => ({
-        npTitleId: title.npCommunicationId,
-        trophyTitleName: title.trophyTitleName,
-        trophyTitleDetail: title.trophyTitleDetail || '',
-        trophyTitleIconUrl: title.trophyTitleIconUrl || '',
-        trophyTitlePlatform: title.trophyTitlePlatform,
-        hasTrophyGroups: title.hasTrophyGroups || false,
-        definedTrophies: {
-          bronze: title.definedTrophies?.bronze || 0,
-          silver: title.definedTrophies?.silver || 0,
-          gold: title.definedTrophies?.gold || 0,
-          platinum: title.definedTrophies?.platinum || 0
-        },
-        earnedTrophies: {
-          bronze: title.earnedTrophies?.bronze || 0,
-          silver: title.earnedTrophies?.silver || 0,
-          gold: title.earnedTrophies?.gold || 0,
-          platinum: title.earnedTrophies?.platinum || 0
-        },
-        progress: title.progress || 0,
-        lastUpdatedDate: title.lastUpdatedDateTime || new Date().toISOString()
-      }));
+      const trophyTitles: TrophyTitle[] = data.trophyTitles
+        .filter((title: any) => title && title.npCommunicationId) // Filtrar apenas títulos válidos
+        .map((title: any) => ({
+          npTitleId: title.npCommunicationId || `game_${Date.now()}_${Math.random()}`,
+          trophyTitleName: title.trophyTitleName || 'Jogo sem nome',
+          trophyTitleDetail: title.trophyTitleDetail || '',
+          trophyTitleIconUrl: title.trophyTitleIconUrl || 'https://via.placeholder.com/100x100?text=🎮',
+          trophyTitlePlatform: title.trophyTitlePlatform || 'PS5',
+          hasTrophyGroups: title.hasTrophyGroups || false,
+          definedTrophies: {
+            bronze: title.definedTrophies?.bronze || 0,
+            silver: title.definedTrophies?.silver || 0,
+            gold: title.definedTrophies?.gold || 0,
+            platinum: title.definedTrophies?.platinum || 0
+          },
+          earnedTrophies: {
+            bronze: title.earnedTrophies?.bronze || 0,
+            silver: title.earnedTrophies?.silver || 0,
+            gold: title.earnedTrophies?.gold || 0,
+            platinum: title.earnedTrophies?.platinum || 0
+          },
+          progress: title.progress || 0,
+          lastUpdatedDate: title.lastUpdatedDateTime || new Date().toISOString()
+        }));
+      
+      // DEBUG: Log dos dados convertidos
+      console.log('🔍 Dados convertidos:', trophyTitles.slice(0, 3).map(t => ({
+        npTitleId: t.npTitleId,
+        trophyTitleName: t.trophyTitleName,
+        trophyTitlePlatform: t.trophyTitlePlatform
+      })));
       
       console.log(`✅ ${trophyTitles.length} jogos encontrados via proxy`);
       return trophyTitles;
@@ -487,6 +496,11 @@ export class PSNService {
       
       // DEBUG: Log da estrutura dos dados retornados
       console.log('🔍 Dados retornados pelo proxy:', data);
+      console.log('🔍 Estrutura dos títulos:', data.trophyTitles?.map((t: any) => ({
+        npCommunicationId: t.npCommunicationId,
+        trophyTitleName: t.trophyTitleName,
+        trophyTitlePlatform: t.trophyTitlePlatform
+      })));
       console.log('🔍 Tipo de data:', typeof data);
       console.log('🔍 Chaves de data:', Object.keys(data));
       console.log('🔍 data.trophies existe?', !!data.trophies);

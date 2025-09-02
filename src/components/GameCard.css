@@ -172,6 +172,17 @@
   opacity: 1;
 }
 
+/* Estado de erro */
+.game-card.error {
+  border: 2px solid #ff4444;
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.game-card.error .game-title {
+  color: #c62828;
+}
+
 .view-trophies {
   color: #00d4ff;
   font-size: 16px;
