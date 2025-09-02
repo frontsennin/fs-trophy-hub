@@ -79,7 +79,7 @@ function App() {
     try {
       setLoading(true);
       setError(null);
-
+      
       // Carregar dados do Firebase primeiro (sempre)
       try {
         console.log("🔄 Tentando carregar dados do Firebase...");
@@ -107,7 +107,7 @@ function App() {
           // Local: Firebase falhou, tentar PSN
           console.log("🔄 Tentando carregar dados do PSN como fallback...");
           await loadPSNData();
-        } else {
+      } else {
           // Vercel: Firebase falhou, tentar sincronização inicial
           console.log("🌐 Firebase falhou no Vercel, tentando sincronização inicial...");
           await handleInitialSync();
@@ -125,13 +125,13 @@ function App() {
   }, [envInfo?.useProxy, trophyTitles, handleInitialSync]);
 
   useEffect(() => {
-    loadData();
+    // 1. Carregar informações do ambiente primeiro
     loadEnvironmentInfo();
-
-    // Configurar sincronização automática a cada 30 minutos
+    
+    // 2. Configurar sincronização automática
     SyncService.setupAutoSync(30);
 
-    // Atualizar status da sincronização a cada 5 segundos
+    // 3. Atualizar status da sincronização a cada 5 segundos
     const syncStatusInterval = setInterval(() => {
       setSyncStatus(SyncService.getSyncStatus());
     }, 5000);
@@ -140,7 +140,15 @@ function App() {
       clearInterval(syncStatusInterval);
       SyncService.stopAutoSync();
     };
-  }, [loadData]);
+  }, []);
+
+  // useEffect separado para loadData (depende de envInfo)
+  useEffect(() => {
+    if (envInfo) {
+      console.log("🌍 Ambiente carregado, iniciando carregamento de dados...");
+      loadData();
+    }
+  }, [envInfo, loadData]);
 
   const loadFirebaseData = async () => {
     try {
@@ -305,8 +313,8 @@ function App() {
           style={{ cursor: "pointer" }}
         >
           🏆 FS Trophy Hub
-        </h1>
-
+          </h1>
+          
         {/* Navegação Principal */}
         <nav className="main-navigation">
           <button
@@ -455,13 +463,13 @@ function App() {
                   </div>
                   <div className="trophy gold">
                     🥇 {profileSummary.earnedTrophies.gold}
-                  </div>
+              </div>
                   <div className="trophy platinum">
                     💎 {profileSummary.earnedTrophies.platinum}
-                  </div>
-                </div>
               </div>
-            )}
+              </div>
+            </div>
+          )}
 
             {/* Controles de Sincronização */}
             <div className="sync-controls">
@@ -485,7 +493,7 @@ function App() {
                   ? "⏹️ Parar Auto-Sync"
                   : "⏰ Iniciar Auto-Sync"}
               </button>
-            </div>
+              </div>
 
             {/* Status da Sincronização */}
             <div className="sync-status">
@@ -502,7 +510,7 @@ function App() {
                   : "⏹️ Auto-Sync parado"}
               </span>
             </div>
-
+            
             {/* Informações de Sincronização */}
             <div className="sync-info">
               <h3>📊 Status da Sincronização</h3>
@@ -510,15 +518,15 @@ function App() {
                 <div className="sync-stat">
                   <span className="label">Última Sincronização:</span>
                   <span className="value">Em breve...</span>
-                </div>
+              </div>
                 <div className="sync-stat">
                   <span className="label">Próxima Sincronização:</span>
                   <span className="value">Em breve...</span>
-                </div>
+              </div>
                 <div className="sync-stat">
                   <span className="label">Jogos Sincronizados:</span>
                   <span className="value">{trophyTitles.length}</span>
-                </div>
+          </div>
               </div>
             </div>
           </section>
