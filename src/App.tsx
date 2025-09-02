@@ -139,15 +139,24 @@ function App() {
       // Converter GameLibrary para TrophyTitle se disponível
       if (gameLibraryData && gameLibraryData.length > 0) {
         console.log("🔄 Convertendo GameLibrary para TrophyTitle...");
-        const convertedTitles = gameLibraryData.map((game) => ({
-          npTitleId: game.id,
-          trophyTitleName: game.title,
-          trophyTitleIconUrl: game.iconUrl || "",
-          trophyTitlePlatform: game.platform,
-          hasTrophyGroups: false,
-          progress: game.isCompleted ? 100 : 0,
-          lastUpdatedDate: game.lastUpdated.toISOString(),
-        }));
+        console.log("🔍 Dados brutos do Firebase:", gameLibraryData.slice(0, 2));
+        
+        const convertedTitles = gameLibraryData.map((game) => {
+          console.log("🔄 Convertendo jogo:", game);
+          
+          return {
+            npTitleId: game.id,
+            trophyTitleName: game.title,
+            trophyTitleIconUrl: game.iconUrl || "https://via.placeholder.com/100x100?text=🎮",
+            trophyTitlePlatform: game.platform,
+            hasTrophyGroups: false,
+            progress: game.isCompleted ? 100 : 0,
+            lastUpdatedDate: game.lastUpdated.toISOString(),
+            earnedTrophies: { platinum: 0, gold: 0, silver: 0, bronze: 0 }
+          };
+        });
+        
+        console.log("✅ Jogos convertidos:", convertedTitles.slice(0, 2));
         setTrophyTitles(convertedTitles);
         console.log(
           `✅ ${convertedTitles.length} jogos convertidos e definidos`
