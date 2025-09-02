@@ -59,10 +59,17 @@ function App() {
         console.log("🔄 Tentando carregar dados do Firebase...");
         await loadFirebaseData();
 
-        // Se Firebase não retornou dados e estamos em desenvolvimento, carregar do PSN
-        if ((!trophyTitles || trophyTitles.length === 0) && envInfo?.useProxy) {
-          console.log("🔄 Firebase vazio, carregando dados do PSN...");
-          await loadPSNData();
+        // Se Firebase não retornou dados, verificar se precisamos sincronizar
+        if (!trophyTitles || trophyTitles.length === 0) {
+          if (envInfo?.useProxy) {
+            // Local: Firebase vazio, carregar do PSN
+            console.log("🔄 Firebase vazio, carregando dados do PSN...");
+            await loadPSNData();
+          } else {
+            // Vercel: Firebase vazio, tentar sincronização inicial
+            console.log("🌐 Firebase vazio no Vercel, tentando sincronização inicial...");
+            await handleInitialSync();
+          }
         }
       } catch (firebaseError) {
         console.warn(
@@ -70,20 +77,15 @@ function App() {
           firebaseError
         );
         
-        // Se Firebase falhar e estamos em desenvolvimento, tentar PSN
         if (envInfo?.useProxy) {
+          // Local: Firebase falhou, tentar PSN
           console.log("🔄 Tentando carregar dados do PSN como fallback...");
           await loadPSNData();
         } else {
-          // Em produção (Vercel), mostrar erro se Firebase falhar
-          setError("Erro ao carregar dados do Firebase. Verifique o console.");
+          // Vercel: Firebase falhou, tentar sincronização inicial
+          console.log("🌐 Firebase falhou no Vercel, tentando sincronização inicial...");
+          await handleInitialSync();
         }
-      }
-
-      // Se não conseguimos carregar dados e não estamos em desenvolvimento
-      if ((!trophyTitles || trophyTitles.length === 0) && !envInfo?.useProxy) {
-        console.log("⚠️ Nenhum dado carregado. Verificando se é problema de configuração...");
-        setError("Nenhum dado disponível. Verifique se o Firebase está configurado corretamente.");
       }
 
     } catch (error) {
@@ -95,6 +97,30 @@ function App() {
       setLoading(false);
     }
   }, [envInfo?.useProxy, trophyTitles]);
+
+  // Função para sincronização inicial no Vercel
+  const handleInitialSync = async () => {
+    try {
+      console.log("🚀 Iniciando sincronização inicial para Vercel...");
+      
+      // Tentar sincronizar dados básicos
+      await SyncService.syncAllData();
+      
+      // Recarregar dados do Firebase após sincronização
+      console.log("🔄 Recarregando dados do Firebase após sincronização...");
+      await loadFirebaseData();
+      
+      if (trophyTitles && trophyTitles.length > 0) {
+        console.log("✅ Sincronização inicial bem-sucedida!");
+      } else {
+        console.log("⚠️ Sincronização inicial não retornou dados");
+        setError("Sincronização inicial não retornou dados. Verifique se o PSN está configurado.");
+      }
+    } catch (error) {
+      console.error("❌ Erro na sincronização inicial:", error);
+      setError("Erro na sincronização inicial. Verifique o console para mais detalhes.");
+    }
+  };
 
   useEffect(() => {
     loadData();
