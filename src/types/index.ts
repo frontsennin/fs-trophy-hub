@@ -96,6 +96,8 @@ export interface GameSuggestion {
   status: 'pending' | 'approved' | 'rejected' | 'completed';
   reason?: string;
   completedAt?: Date;
+  points?: number; // Sistema de pontos (opcional, será definido pelo Firebase)
+  votedBy?: string[]; // IPs que já votaram (opcional, será definido pelo Firebase)
   gameData?: {
     iconUrl?: string;
     description?: string;

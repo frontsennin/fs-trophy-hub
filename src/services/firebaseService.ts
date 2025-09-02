@@ -126,8 +126,22 @@ export class FirebaseService {
   
   static async addGameSuggestion(suggestion: Omit<GameSuggestion, 'id'>): Promise<string> {
     try {
+      // Filtrar campos undefined antes de enviar para o Firebase
+      const cleanSuggestion = Object.fromEntries(
+        Object.entries(suggestion).filter(([_, value]) => value !== undefined)
+      );
+      
+      // Limpar campos undefined aninhados
+      if (cleanSuggestion.userInfo) {
+        cleanSuggestion.userInfo = Object.fromEntries(
+          Object.entries(cleanSuggestion.userInfo).filter(([_, value]) => value !== undefined)
+        );
+      }
+      
       const docRef = await addDoc(collection(db, 'gameSuggestions'), {
-        ...suggestion,
+        ...cleanSuggestion,
+        points: 0, // Inicializar com 0 pontos
+        votedBy: [], // Array vazio de votos
         suggestedAt: serverTimestamp(),
         status: 'pending'
       });
@@ -138,30 +152,89 @@ export class FirebaseService {
     }
   }
 
+  static async updateSuggestionPoints(suggestionId: string, userIP: string): Promise<void> {
+    try {
+      const docRef = doc(db, 'gameSuggestions', suggestionId);
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        throw new Error('Sugestão não encontrada');
+      }
+      
+      const currentData = docSnap.data();
+      const currentPoints = currentData.points || 0;
+      const votedBy = currentData.votedBy || [];
+      
+      // Verificar se já votou
+      if (votedBy.includes(userIP)) {
+        throw new Error('Usuário já votou nesta sugestão');
+      }
+      
+      // Adicionar voto e incrementar pontos
+      await updateDoc(docRef, {
+        points: currentPoints + 1,
+        votedBy: [...votedBy, userIP]
+      });
+      
+      console.log('✅ Voto adicionado com sucesso para sugestão:', suggestionId);
+    } catch (error) {
+      console.error('❌ Erro ao atualizar pontos da sugestão:', error);
+      throw error;
+    }
+  }
+
   static async getGameSuggestions(status?: GameSuggestion['status']): Promise<GameSuggestion[]> {
     try {
+      console.log('🔍 FirebaseService.getGameSuggestions - Iniciando busca...');
+      
       // Query simplificada - apenas filtrar por status, sem ordenação
       let q = query(collection(db, 'gameSuggestions'));
       
       if (status) {
         q = query(q, where('status', '==', status));
+        console.log('🔍 Filtro por status aplicado:', status);
       }
       
+      console.log('🔍 Executando query no Firestore...');
       const querySnapshot = await getDocs(q);
       
-      const suggestions = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        suggestedAt: doc.data().suggestedAt?.toDate() || new Date(),
-        completedAt: doc.data().completedAt?.toDate()
-      })) as GameSuggestion[];
+      console.log('🔍 Query executada:', {
+        empty: querySnapshot.empty,
+        size: querySnapshot.size,
+        docs: querySnapshot.docs.length
+      });
+      
+      if (querySnapshot.empty) {
+        console.log('🔍 Nenhuma sugestão encontrada no Firestore');
+        return [];
+      }
+      
+      const suggestions = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('🔍 Processando documento:', {
+          id: doc.id,
+          data: data
+        });
+        
+        return {
+          id: doc.id,
+          ...data,
+          suggestedAt: data.suggestedAt?.toDate() || new Date(),
+          completedAt: data.completedAt?.toDate()
+        };
+      }) as GameSuggestion[];
+      
+      console.log('🔍 Sugestões processadas:', suggestions);
       
       // Ordenar localmente por data de sugestão (mais recente primeiro)
-      return suggestions.sort((a, b) => {
+      const sortedSuggestions = suggestions.sort((a, b) => {
         const dateA = a.suggestedAt instanceof Date ? a.suggestedAt : new Date(a.suggestedAt);
         const dateB = b.suggestedAt instanceof Date ? b.suggestedAt : new Date(b.suggestedAt);
         return dateB.getTime() - dateA.getTime();
       });
+      
+      console.log('🔍 Sugestões ordenadas retornadas:', sortedSuggestions);
+      return sortedSuggestions;
       
     } catch (error) {
       console.error('❌ Erro ao buscar sugestões:', error);
@@ -529,18 +602,51 @@ export class FirebaseService {
 
   // ===== UTILITÁRIOS =====
   
-  static async checkIfGameExists(gameTitle: string): Promise<boolean> {
+  static async checkGameSuggestion(gameTitle: string, platform: string): Promise<{ exists: boolean; similarSuggestions: GameSuggestion[] }> {
     try {
-      const querySnapshot = await getDocs(
+      const normalizedTitle = gameTitle.toLowerCase().trim();
+      
+      // Verificar se já existe na biblioteca
+      const libraryQuery = await getDocs(
         query(
-          collection(db, 'gameLibrary'),
-          where('title', '==', gameTitle)
+          collection(db, 'trophyTitles'),
+          where('trophyTitleName', '==', gameTitle)
         )
       );
-      return !querySnapshot.empty;
+      
+      if (!libraryQuery.empty) {
+        return { exists: true, similarSuggestions: [] };
+      }
+      
+      // Verificar sugestões existentes
+      const suggestionsQuery = await getDocs(collection(db, 'gameSuggestions'));
+      const similarSuggestions: GameSuggestion[] = [];
+      
+      suggestionsQuery.docs.forEach(doc => {
+        const suggestion = doc.data();
+        const suggestionTitle = suggestion.gameTitle.toLowerCase().trim();
+        
+        // Verificar similaridade (nome similar ou igual)
+        if (suggestionTitle === normalizedTitle || 
+            suggestionTitle.includes(normalizedTitle) || 
+            normalizedTitle.includes(suggestionTitle)) {
+          similarSuggestions.push({
+            id: doc.id,
+            ...suggestion
+          } as GameSuggestion);
+        }
+      });
+      
+      return { 
+        exists: false, 
+        similarSuggestions: similarSuggestions.sort((a, b) => 
+          new Date(b.suggestedAt).getTime() - new Date(a.suggestedAt).getTime()
+        )
+      };
+      
     } catch (error) {
-      console.error('❌ Erro ao verificar jogo:', error);
-      return false;
+      console.error('❌ Erro ao verificar sugestão de jogo:', error);
+      return { exists: false, similarSuggestions: [] };
     }
   }
 

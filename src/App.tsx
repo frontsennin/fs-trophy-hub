@@ -5,6 +5,7 @@ import TrophyCard from "./components/TrophyCard";
 import PSNStatusIndicator from "./components/PSNStatusIndicator";
 import CurrentGameCard from "./components/CurrentGameCard";
 import GameSuggestionForm from "./components/GameSuggestionForm";
+import CurrentGameForm from "./components/CurrentGameForm";
 import { PSNService } from "./services/psnService";
 import { FirebaseService } from "./services/firebaseService";
 import { SyncService } from "./services/syncService";
@@ -32,12 +33,15 @@ function App() {
   const [gameSuggestions, setGameSuggestions] = useState<GameSuggestion[]>([]);
 
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
+  const [showCurrentGameForm, setShowCurrentGameForm] = useState(false);
   const [currentView, setCurrentView] = useState<
     "games" | "currentGame" | "suggestions" | "sync"
   >("games");
+  const [userIP, setUserIP] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [envInfo, setEnvInfo] = useState<any>(null);
+  const [isVercel, setIsVercel] = useState(false);
 
   const [syncStatus, setSyncStatus] = useState<{
     isSyncing: boolean;
@@ -47,6 +51,71 @@ function App() {
   const loadEnvironmentInfo = () => {
     const info = PSNService.getEnvironmentInfo();
     setEnvInfo(info);
+    setIsVercel(info.isVercel);
+  };
+
+  // Funções auxiliares para o sistema de sugestões
+  const getUserIP = () => userIP;
+
+  const getStatusColor = (status: GameSuggestion['status']) => {
+    switch (status) {
+      case 'pending': return '#ffa500';
+      case 'approved': return '#4caf50';
+      case 'rejected': return '#f44336';
+      case 'completed': return '#2196f3';
+      default: return '#9e9e9e';
+    }
+  };
+
+  const getStatusText = (status: GameSuggestion['status']) => {
+    switch (status) {
+      case 'pending': return 'Pendente';
+      case 'approved': return 'Aprovado';
+      case 'rejected': return 'Rejeitado';
+      case 'completed': return 'Completo';
+      default: return 'Desconhecido';
+    }
+  };
+
+  const getUserIPFromAPI = async () => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      setUserIP(data.ip);
+    } catch (error) {
+      console.error('Erro ao obter IP:', error);
+      // Fallback para IP local
+      setUserIP('local-' + Math.random().toString(36).substr(2, 9));
+    }
+  };
+
+  const handleVote = async (suggestionId: string) => {
+    if (!userIP) {
+      alert('Aguarde um momento para poder votar...');
+      return;
+    }
+
+    try {
+      const suggestion = gameSuggestions.find(s => s.id === suggestionId);
+      if (!suggestion) return;
+
+      // Verificar se já votou
+      if ((suggestion.votedBy ?? []).includes(userIP)) {
+        alert('Você já votou nesta sugestão!');
+        return;
+      }
+
+      // Atualizar pontos
+      await FirebaseService.updateSuggestionPoints(suggestionId, userIP);
+      
+      // Recarregar sugestões
+      const updatedSuggestions = await FirebaseService.getGameSuggestions();
+      setGameSuggestions(updatedSuggestions);
+      
+    } catch (error) {
+      console.error('Erro ao votar:', error);
+      alert('Erro ao votar. Tente novamente.');
+    }
   };
 
   // Função para filtrar e ordenar jogos
@@ -138,6 +207,28 @@ function App() {
           setError("Firebase falhou. Verifique a configuração e tente novamente.");
         }
       }
+      
+      // SEMPRE carregar sugestões e jogo atual do Firebase, independente do ambiente
+      try {
+        console.log("🔍 Carregando sugestões do Firebase em todos os ambientes...");
+        const suggestionsData = await FirebaseService.getGameSuggestions();
+        setGameSuggestions(suggestionsData || []);
+        console.log("🔍 Sugestões carregadas:", suggestionsData);
+      } catch (error) {
+        console.warn("⚠️ Erro ao carregar sugestões:", error);
+        setGameSuggestions([]);
+      }
+      
+      // SEMPRE carregar jogo atual do Firebase, independente do ambiente
+      try {
+        console.log("🔍 Carregando jogo atual do Firebase em todos os ambientes...");
+        const currentGameData = await FirebaseService.getCurrentGame();
+        setCurrentGame(currentGameData);
+        console.log("🔍 Jogo atual carregado:", currentGameData);
+      } catch (error) {
+        console.warn("⚠️ Erro ao carregar jogo atual:", error);
+        setCurrentGame(null);
+      }
 
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
@@ -153,7 +244,10 @@ function App() {
     // 1. Carregar informações do ambiente primeiro
     loadEnvironmentInfo();
     
-    // 2. Configurar sincronização automática
+    // 2. Obter IP do usuário
+    getUserIPFromAPI();
+    
+    // 3. Configurar sincronização automática
     SyncService.setupAutoSync(30);
 
     // 3. Atualizar status da sincronização a cada 5 segundos
@@ -191,24 +285,43 @@ function App() {
   // useEffect separado para loadData (depende de envInfo)
   useEffect(() => {
     if (envInfo) {
-      loadData();
+    loadData();
     }
   }, [envInfo, loadData]);
 
+  // Debug das sugestões
+  useEffect(() => {
+    console.log('🔍 Estado das sugestões mudou:', {
+      gameSuggestions,
+      length: gameSuggestions.length,
+      timestamp: new Date().toISOString()
+    });
+  }, [gameSuggestions]);
+
   const loadFirebaseData = async () => {
     try {
+      console.log("🔍 loadFirebaseData - INICIANDO EXECUÇÃO!");
+      console.log("🔍 loadFirebaseData - Iniciando...");
 
-      // Carregar dados do Firebase
-      const [currentGameData, suggestionsData, gameLibraryData] =
+      // Carregar dados do Firebase (exceto sugestões e jogo atual)
+      const [gameLibraryData] =
         await Promise.all([
-          FirebaseService.getCurrentGame(),
-          FirebaseService.getGameSuggestions(),
           FirebaseService.getGameLibrary(),
         ]);
+      
+      console.log("🔍 Dados retornados do Firebase:", {
+        gameLibraryData,
+        gameLibraryLength: gameLibraryData?.length || 0
+      });
 
 
-      setCurrentGame(currentGameData);
-      setGameSuggestions(suggestionsData || []);
+      // setCurrentGame removido daqui - agora é carregado separadamente
+      // setGameSuggestions removido daqui - agora é carregado separadamente
+      
+      console.log('🔍 Dados do Firebase carregados:', {
+        gameLibraryData,
+        gameLibraryLength: gameLibraryData?.length || 0
+      });
 
       // Os dados já estão no formato correto (TrophyTitle), não precisamos converter!
       if (gameLibraryData && gameLibraryData.length > 0) {
@@ -355,6 +468,17 @@ function App() {
     }
   };
 
+  const handleCurrentGameUpdated = async () => {
+    try {
+      // Recarregar jogo atual
+      const updatedCurrentGame = await FirebaseService.getCurrentGame();
+      setCurrentGame(updatedCurrentGame);
+      console.log("✅ Jogo atual recarregado:", updatedCurrentGame);
+    } catch (error) {
+      console.error("❌ Erro ao recarregar jogo atual:", error);
+    }
+  };
+
   if (loading && trophyTitles.length === 0) {
     return (
       <div className="App">
@@ -400,17 +524,6 @@ function App() {
           </button>
           <button
             onClick={() => {
-              setCurrentView("currentGame");
-              window.location.hash = 'currentGame';
-            }}
-            className={`nav-button ${
-              currentView === "currentGame" ? "active" : ""
-            }`}
-          >
-            🎯 Jogo Atual
-          </button>
-          <button
-            onClick={() => {
               setCurrentView("suggestions");
               window.location.hash = 'suggestions';
             }}
@@ -419,6 +532,7 @@ function App() {
           >
             💡 Sugestões
           </button>
+          {!isVercel && (
           <button
             onClick={() => {
               setCurrentView("sync");
@@ -429,6 +543,7 @@ function App() {
           >
             🔄 Sync
           </button>
+          )}
         </nav>
       </header>
 
@@ -489,12 +604,12 @@ function App() {
                   }
                   
                   return (
-                    <div key={game.npTitleId} className="game-item">
-                      <GameCard
-                        game={game}
-                        onClick={() => handleGameClick(game)}
-                      />
-                    </div>
+                  <div key={game.npTitleId} className="game-item">
+                    <GameCard
+                      game={game}
+                      onClick={() => handleGameClick(game)}
+                    />
+                  </div>
                   );
                 })}
               </div>
@@ -530,14 +645,20 @@ function App() {
         {currentView === "currentGame" && (
           <section className="current-game-section">
             <h2>🎯 Jogo Atual</h2>
+            {(() => {
+              console.log('🎯 Renderizando página de jogo atual:', {
+                currentGame,
+                hasCurrentGame: !!currentGame,
+                currentView
+              });
+              return null;
+            })()}
             {currentGame ? (
               <CurrentGameCard currentGame={currentGame} />
             ) : (
               <div className="no-current-game">
                 <p>Nenhum jogo ativo no momento.</p>
-                <button className="set-current-game-btn">
-                  🎮 Definir Jogo Atual
-                </button>
+                <p className="info-text">Para definir um jogo atual, vá para a aba "🔄 Sync" → "🎮 Gerenciar Jogo Atual"</p>
               </div>
             )}
           </section>
@@ -557,27 +678,62 @@ function App() {
             </div>
 
             <div className="suggestions-grid">
-              {gameSuggestions.map((suggestion) => (
-                <div key={suggestion.id} className="suggestion-card">
-                  <h3>{suggestion.gameTitle}</h3>
-                  <p>
-                    <strong>Plataforma:</strong> {suggestion.platform}
-                  </p>
-                  <p>
-                    <strong>Sugerido por:</strong> {suggestion.suggestedBy}
-                  </p>
-                  <p>
-                    <strong>Status:</strong>
-                    <span className={`status ${suggestion.status}`}>
-                      {suggestion.status}
-                    </span>
-                  </p>
-                  <p>
-                    <strong>Data:</strong>{" "}
-                    {suggestion.suggestedAt.toLocaleDateString()}
-                  </p>
+              {gameSuggestions.length === 0 ? (
+                <div className="no-suggestions">
+                  <p>Nenhuma sugestão encontrada.</p>
+                  <p>Seja o primeiro a sugerir um jogo!</p>
                 </div>
-              ))}
+              ) : (
+                gameSuggestions.map((suggestion) => (
+                <div key={suggestion.id} className="suggestion-card">
+                    <div className="suggestion-header">
+                      <div className="game-info">
+                        <h3 className="game-title">{suggestion.gameTitle}</h3>
+                        <div className="platform-badge">
+                          {suggestion.platform}
+                        </div>
+                      </div>
+                      <div className="status-badge" style={{ backgroundColor: getStatusColor(suggestion.status) }}>
+                        {getStatusText(suggestion.status)}
+                      </div>
+                    </div>
+
+                    <div className="suggestion-details">
+                      <p className="suggested-by">
+                        <strong>Sugerido por:</strong> {suggestion.userInfo?.name || suggestion.suggestedBy}
+                      </p>
+                      <p className="suggestion-date">
+                        <strong>Data:</strong> {new Date(suggestion.suggestedAt).toLocaleDateString('pt-BR')}
+                      </p>
+                      {suggestion.reason && (
+                        <p className="suggestion-reason">
+                          <strong>Motivo:</strong> {suggestion.reason}
+                        </p>
+                      )}
+                      {suggestion.userInfo?.contact && (
+                        <p className="suggestion-contact">
+                          <strong>Contato:</strong> {suggestion.userInfo.contact}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="suggestion-footer">
+                      <div className="points-section">
+                        <span className="points-label">Pontos:</span>
+                        <span className="points-value">{suggestion.points ?? 0}</span>
+                        <button
+                          className={`vote-button ${(suggestion.votedBy ?? []).includes(getUserIP()) ? 'voted' : ''}`}
+                          onClick={() => handleVote(suggestion.id)}
+                          disabled={(suggestion.votedBy ?? []).includes(getUserIP())}
+                          title={(suggestion.votedBy ?? []).includes(getUserIP()) ? 'Você já votou!' : 'Clique para dar um ponto!'}
+                        >
+                          {(suggestion.votedBy ?? []).includes(getUserIP()) ? '⭐ Votado' : '⭐ Votar'}
+                        </button>
+                      </div>
+                    </div>
+                </div>
+                ))
+              )}
             </div>
           </section>
         )}
@@ -682,6 +838,35 @@ function App() {
           </div>
               </div>
             </div>
+
+            {/* Gerenciamento do Jogo Atual */}
+            <div className="current-game-management">
+              <h3>🎮 Gerenciar Jogo Atual</h3>
+              <p>Defina ou atualize o jogo que você está jogando atualmente.</p>
+              
+              {currentGame ? (
+                <div className="current-game-info">
+                  <h4>🎯 Jogo Atual: {currentGame.gameTitle}</h4>
+                  <div className="game-details">
+                    <p><strong>Plataforma:</strong> {currentGame.platform}</p>
+                    <p><strong>Progresso:</strong> {currentGame.progress}%</p>
+                    <p><strong>Status:</strong> {currentGame.status}</p>
+                    {currentGame.notes && <p><strong>Notas:</strong> {currentGame.notes}</p>}
+                  </div>
+                </div>
+              ) : (
+                <div className="no-current-game">
+                  <p>Nenhum jogo atual definido.</p>
+                </div>
+              )}
+              
+              <button
+                onClick={() => setShowCurrentGameForm(true)}
+                className="manage-game-button"
+              >
+                {currentGame ? '✏️ Editar Jogo Atual' : '➕ Definir Jogo Atual'}
+              </button>
+            </div>
           </section>
         )}
       </main>
@@ -693,6 +878,15 @@ function App() {
           onClose={() => setShowSuggestionForm(false)}
         />
       )}
+
+      {/* Modal de Formulário - Jogo Atual */}
+      {showCurrentGameForm && (
+        <CurrentGameForm
+          onClose={() => setShowCurrentGameForm(false)}
+          onGameUpdated={handleCurrentGameUpdated}
+        />
+      )}
+
     </div>
   );
 }

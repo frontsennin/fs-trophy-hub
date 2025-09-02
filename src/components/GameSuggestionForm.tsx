@@ -71,11 +71,17 @@ const GameSuggestionForm: React.FC<GameSuggestionFormProps> = ({
       setLoading(true);
       setError(null);
       
-      // Verificar se o jogo já existe na biblioteca
-      const gameExists = await FirebaseService.checkIfGameExists(formData.gameTitle);
+      // Verificar se o jogo já existe na biblioteca ou se há sugestões similares
+      const { exists, similarSuggestions } = await FirebaseService.checkGameSuggestion(formData.gameTitle, formData.platform);
       
-      if (gameExists) {
+      if (exists) {
         setError('Este jogo já está na biblioteca!');
+        return;
+      }
+      
+      if (similarSuggestions.length > 0) {
+        const similarNames = similarSuggestions.map(s => s.gameTitle).join(', ');
+        setError(`Jogo similar já foi sugerido: ${similarNames}. Verifique se não é o mesmo jogo!`);
         return;
       }
       
@@ -88,14 +94,21 @@ const GameSuggestionForm: React.FC<GameSuggestionFormProps> = ({
         status: 'pending',
         userInfo: {
           name: formData.isAnonymous ? 'Anônimo' : formData.suggestedBy.trim(),
-          isAnonymous: formData.isAnonymous,
-          contact: formData.contact.trim() || undefined
+          isAnonymous: formData.isAnonymous
         }
       };
+      
+      // Adicionar campos opcionais apenas se tiverem valor
+      if (formData.contact.trim()) {
+        suggestion.userInfo.contact = formData.contact.trim();
+      }
       
       if (formData.reason.trim()) {
         suggestion.reason = formData.reason.trim();
       }
+      
+      // Log para debug
+      console.log('🔍 Sugestão sendo enviada:', suggestion);
       
       const suggestionId = await FirebaseService.addGameSuggestion(suggestion);
       

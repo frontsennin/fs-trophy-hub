@@ -13,6 +13,20 @@ const CurrentGameCard: React.FC<CurrentGameCardProps> = ({ currentGame, onUpdate
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [showVideos, setShowVideos] = useState(false);
 
+  // Debug dos dados recebidos
+  useEffect(() => {
+    console.log('🎮 CurrentGameCard recebeu dados:', {
+      id: currentGame?.id,
+      title: currentGame?.gameTitle,
+      platform: currentGame?.platform,
+      progress: currentGame?.progress,
+      status: currentGame?.status,
+      priority: currentGame?.priority,
+      notes: currentGame?.notes,
+      youtubePlaylist: currentGame?.youtubePlaylist
+    });
+  }, [currentGame]);
+
   const loadYouTubeVideos = useCallback(async () => {
     if (!currentGame?.id) return;
     
