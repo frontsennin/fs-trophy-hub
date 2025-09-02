@@ -6,12 +6,9 @@ import {
   getDocs, 
   addDoc, 
   updateDoc, 
-  deleteDoc, 
   query, 
   where, 
-  orderBy, 
   limit,
-  Timestamp,
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -23,7 +20,6 @@ import {
   CurrentGame, 
   YouTubeVideo,
   GameLibrary,
-  TrophyProgress,
   Notification,
   AppSettings
 } from '../types';

@@ -1,6 +1,6 @@
 import { PSNService } from './psnService';
 import { FirebaseService } from './firebaseService';
-import { TrophyTitle, Trophy } from '../types';
+
 
 export class SyncService {
   private static isSyncing = false;

@@ -28,7 +28,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [envInfo, setEnvInfo] = useState<any>(null);
-  const [serverStatus, setServerStatus] = useState<boolean>(false);
+
   const [syncStatus, setSyncStatus] = useState<{ isSyncing: boolean; hasAutoSync: boolean }>({ isSyncing: false, hasAutoSync: false });
 
           useEffect(() => {
@@ -62,7 +62,6 @@ function App() {
       
       // Verificar status do servidor
       const isServerRunning = await PSNService.checkServerStatus();
-      setServerStatus(isServerRunning);
       
       if (!isServerRunning) {
         if (envInfo?.useProxy) {
@@ -202,23 +201,7 @@ function App() {
     }
   };
 
-          const handleSyncGame = async (game: TrophyTitle) => {
-          try {
-            setLoading(true);
-            setError(null);
 
-            console.log(`🎮 Sincronizando jogo específico: ${game.trophyTitleName}`);
-            await SyncService.syncSingleGame(game.npTitleId);
-
-            console.log(`✅ Jogo ${game.trophyTitleName} sincronizado!`);
-
-          } catch (error) {
-            console.error('❌ Erro ao sincronizar jogo:', error);
-            setError('Erro ao sincronizar jogo. Verifique o console.');
-          } finally {
-            setLoading(false);
-          }
-        };
 
         const toggleAutoSync = () => {
           if (syncStatus.hasAutoSync) {
