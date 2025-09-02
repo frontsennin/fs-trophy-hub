@@ -57,35 +57,38 @@ function App() {
       // Verificar status do servidor
       const isServerRunning = await PSNService.checkServerStatus();
 
-      if (!isServerRunning) {
-        if (envInfo?.useProxy) {
-          setError(
-            'Servidor proxy não está rodando. Execute "node server.js" em outro terminal.'
-          );
-        } else {
-          setError("Falha na autenticação PSN. Verifique as credenciais.");
-        }
-        setLoading(false);
-        return;
-      }
-
-      // Carregar dados do Firebase primeiro
+      // Carregar dados do Firebase primeiro (sempre)
       try {
+        console.log("🔄 Tentando carregar dados do Firebase...");
         await loadFirebaseData();
 
-        // Se Firebase não retornou dados, carregar do PSN
-        if (!trophyTitles || trophyTitles.length === 0) {
+        // Se Firebase não retornou dados e estamos em desenvolvimento, carregar do PSN
+        if ((!trophyTitles || trophyTitles.length === 0) && envInfo?.useProxy) {
           console.log("🔄 Firebase vazio, carregando dados do PSN...");
           await loadPSNData();
         }
       } catch (firebaseError) {
         console.warn(
-          "⚠️ Erro ao carregar dados do Firebase, tentando PSN:",
+          "⚠️ Erro ao carregar dados do Firebase:",
           firebaseError
         );
-        // Se Firebase falhar, carregar do PSN
-        await loadPSNData();
+        
+        // Se Firebase falhar e estamos em desenvolvimento, tentar PSN
+        if (envInfo?.useProxy) {
+          console.log("🔄 Tentando carregar dados do PSN como fallback...");
+          await loadPSNData();
+        } else {
+          // Em produção (Vercel), mostrar erro se Firebase falhar
+          setError("Erro ao carregar dados do Firebase. Verifique o console.");
+        }
       }
+
+      // Se não conseguimos carregar dados e não estamos em desenvolvimento
+      if ((!trophyTitles || trophyTitles.length === 0) && !envInfo?.useProxy) {
+        console.log("⚠️ Nenhum dado carregado. Verificando se é problema de configuração...");
+        setError("Nenhum dado disponível. Verifique se o Firebase está configurado corretamente.");
+      }
+
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
       setError(
