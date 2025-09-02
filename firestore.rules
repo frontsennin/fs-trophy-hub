@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Permitir acesso público às coleções principais (para desenvolvimento)
+    // Em produção, você deve implementar autenticação adequada
+    
+    // Biblioteca de jogos - permitir leitura e escrita
+    match /gameLibrary/{document} {
+      allow read, write: if true;
+    }
+    
+    // Jogos atuais - permitir leitura e escrita
+    match /currentGames/{document} {
+      allow read, write: if true;
+    }
+    
+    // Sugestões de jogos - permitir leitura e escrita
+    match /gameSuggestions/{document} {
+      allow read, write: if true;
+    }
+    
+    // Troféus - permitir leitura e escrita
+    match /trophies/{document} {
+      allow read, write: if true;
+    }
+    
+    // Títulos de troféus - permitir leitura e escrita
+    match /trophyTitles/{document} {
+      allow read, write: if true;
+    }
+    
+    // Vídeos do YouTube - permitir leitura e escrita
+    match /youtubeVideos/{document} {
+      allow read, write: if true;
+    }
+    
+    // Seguidores - permitir leitura e escrita
+    match /followers/{document} {
+      allow read, write: if true;
+    }
+    
+    // Notificações - permitir leitura e escrita
+    match /notifications/{document} {
+      allow read, write: if true;
+    }
+    
+    // Configurações do app - permitir leitura e escrita
+    match /appSettings/{document} {
+      allow read, write: if true;
+    }
+    
+    // Regra padrão - negar acesso a outras coleções
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

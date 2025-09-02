@@ -146,13 +146,14 @@ function App() {
   useEffect(() => {
     if (envInfo) {
       console.log("🌍 Ambiente carregado, iniciando carregamento de dados...");
-      loadData();
+    loadData();
     }
   }, [envInfo, loadData]);
 
   const loadFirebaseData = async () => {
     try {
       console.log("🔄 Carregando dados do Firebase...");
+      console.log("🔍 Firebase: Verificando configuração...");
 
       // Carregar dados do Firebase
       const [currentGameData, suggestionsData, gameLibraryData] =
@@ -196,6 +197,37 @@ function App() {
       console.log("✅ Dados do Firebase carregados com sucesso");
     } catch (error) {
       console.warn("⚠️ Erro ao carregar dados do Firebase:", error);
+      
+      // Tratamento específico de erros do Firebase
+      if (error instanceof Error) {
+        console.error("❌ Detalhes do erro Firebase:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        
+        // Verificar se é erro de permissão
+        if (error.message.includes('permission') || error.message.includes('Permission denied')) {
+          console.error("🚫 Erro de permissão do Firestore - verificar regras de segurança");
+          setError("Erro de permissão do Firebase. Verifique as regras de segurança.");
+          return;
+        }
+        
+        // Verificar se é erro de rede
+        if (error.message.includes('network') || error.message.includes('timeout')) {
+          console.error("🌐 Erro de rede - verificar conectividade");
+          setError("Erro de rede ao conectar com Firebase. Verifique sua conexão.");
+          return;
+        }
+        
+        // Verificar se é erro de configuração
+        if (error.message.includes('config') || error.message.includes('invalid')) {
+          console.error("⚙️ Erro de configuração do Firebase");
+          setError("Erro de configuração do Firebase. Verifique as credenciais.");
+          return;
+        }
+      }
+      
       // Se Firebase falhar, continuar com PSN
       throw error; // Re-throw para garantir que o catch do loadData funcione
     }
@@ -460,7 +492,7 @@ function App() {
                   </div>
                   <div className="trophy silver">
                     🥈 {profileSummary.earnedTrophies.silver}
-                  </div>
+              </div>
                   <div className="trophy gold">
                     🥇 {profileSummary.earnedTrophies.gold}
               </div>

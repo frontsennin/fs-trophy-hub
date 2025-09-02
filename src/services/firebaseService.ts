@@ -226,6 +226,10 @@ export class FirebaseService {
   static async getCurrentGame(): Promise<CurrentGame | null> {
     try {
       console.log('🎮 Buscando jogo atual...');
+      console.log('🔍 Firebase: Configuração para currentGames:', {
+        projectId: db.app.options.projectId,
+        collection: 'currentGames'
+      });
       
       // Query simplificada - apenas filtrar por status, sem ordenação complexa
       const q = query(
@@ -253,6 +257,26 @@ export class FirebaseService {
       
     } catch (error) {
       console.error('❌ Erro ao buscar jogo atual:', error);
+      
+      // Tratamento específico de erros do Firebase
+      if (error instanceof Error) {
+        console.error('❌ Detalhes do erro getCurrentGame:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        
+        // Verificar se é erro de permissão
+        if (error.message.includes('permission') || error.message.includes('Permission denied')) {
+          console.error('🚫 Erro de permissão do Firestore - verificar regras de segurança');
+        }
+        
+        // Verificar se é erro de rede
+        if (error.message.includes('network') || error.message.includes('timeout')) {
+          console.error('🌐 Erro de rede - verificar conectividade');
+        }
+      }
+      
       return null;
     }
   }
@@ -349,6 +373,10 @@ export class FirebaseService {
   static async getGameLibrary(): Promise<GameLibrary[]> {
     try {
       console.log('🔍 Firebase: Buscando coleção gameLibrary...');
+      console.log('🔍 Firebase: Configuração:', {
+        projectId: db.app.options.projectId,
+        apiKey: db.app.options.apiKey ? '***' : 'undefined'
+      });
       
       // Query simplificada - sem ordenação para evitar necessidade de índice
       const querySnapshot = await getDocs(collection(db, 'gameLibrary'));
@@ -382,12 +410,39 @@ export class FirebaseService {
       
     } catch (error) {
       console.error('❌ Erro ao buscar biblioteca:', error);
+      
+      // Tratamento específico de erros do Firebase
       if (error instanceof Error) {
         console.error('❌ Detalhes do erro:', {
           message: error.message,
-          stack: error.stack
+          stack: error.stack,
+          name: error.name
         });
+        
+        // Verificar se é erro de permissão
+        if (error.message.includes('permission') || error.message.includes('Permission denied')) {
+          console.error('🚫 Erro de permissão do Firestore - verificar regras de segurança');
+        }
+        
+        // Verificar se é erro de rede
+        if (error.message.includes('network') || error.message.includes('timeout')) {
+          console.error('🌐 Erro de rede - verificar conectividade');
+        }
+        
+        // Verificar se é erro de configuração
+        if (error.message.includes('config') || error.message.includes('invalid')) {
+          console.error('⚙️ Erro de configuração do Firebase');
+        }
       }
+      
+      // Log adicional para debugging
+      console.error('🔍 Firebase Debug Info:', {
+        dbExists: !!db,
+        appExists: !!db?.app,
+        projectId: db?.app?.options?.projectId,
+        timestamp: new Date().toISOString()
+      });
+      
       return [];
     }
   }
