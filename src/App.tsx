@@ -53,23 +53,25 @@ function App() {
   const handleInitialSync = useCallback(async () => {
     try {
       console.log("🚀 Iniciando sincronização inicial para Vercel...");
+      console.log("🔍 Vercel detectado - PSN não disponível, focando apenas no Firebase...");
       
-      // Tentar sincronizar dados básicos
-      await SyncService.syncAllData();
+      // No Vercel, não podemos sincronizar PSN, então vamos:
+      // 1. Verificar se Firebase tem dados (pode ter sido populado por sincronização local)
+      // 2. Se não tiver, mostrar mensagem para sincronizar localmente
       
-      // Recarregar dados do Firebase após sincronização
-      console.log("🔄 Recarregando dados do Firebase após sincronização...");
+      console.log("🔄 Verificando dados existentes no Firebase...");
       await loadFirebaseData();
       
       if (trophyTitles && trophyTitles.length > 0) {
-        console.log("✅ Sincronização inicial bem-sucedida!");
+        console.log("✅ Firebase já possui dados! Sincronização inicial bem-sucedida!");
       } else {
-        console.log("⚠️ Sincronização inicial não retornou dados");
-        setError("Sincronização inicial não retornou dados. Verifique se o PSN está configurado.");
+        console.log("⚠️ Firebase ainda vazio no Vercel");
+        setError("Firebase não possui dados. Sincronize localmente primeiro, depois faça deploy.");
       }
     } catch (error) {
-      console.error("❌ Erro na sincronização inicial:", error);
-      setError("Erro na sincronização inicial. Verifique o console para mais detalhes.");
+      console.error("❌ Erro na verificação inicial:", error);
+      console.error("❌ Stack trace:", error instanceof Error ? error.stack : 'N/A');
+      setError("Erro na verificação inicial. Verifique o console para mais detalhes.");
     }
   }, [trophyTitles]);
 
