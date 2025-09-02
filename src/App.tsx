@@ -49,32 +49,6 @@ function App() {
     setEnvInfo(info);
   };
 
-  // Função para sincronização inicial no Vercel
-  const handleInitialSync = useCallback(async () => {
-    try {
-      console.log("🚀 Iniciando sincronização inicial para Vercel...");
-      console.log("🔍 Vercel detectado - PSN não disponível, focando apenas no Firebase...");
-      
-      // No Vercel, não podemos sincronizar PSN, então vamos:
-      // 1. Verificar se Firebase tem dados (pode ter sido populado por sincronização local)
-      // 2. Se não tiver, popular com dados de teste
-      
-      console.log("🔄 Verificando dados existentes no Firebase...");
-      await loadFirebaseData();
-      
-      if (trophyTitles && trophyTitles.length > 0) {
-        console.log("✅ Firebase já possui dados! Sincronização inicial bem-sucedida!");
-      } else {
-        console.log("⚠️ Firebase vazio no Vercel");
-        setError("Firebase não possui dados. Sincronize localmente primeiro, depois faça deploy.");
-      }
-    } catch (error) {
-      console.error("❌ Erro na verificação inicial:", error);
-      console.error("❌ Stack trace:", error instanceof Error ? error.stack : 'N/A');
-      setError("Erro na verificação inicial. Verifique o console para mais detalhes.");
-    }
-  }, [trophyTitles]);
-
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -84,15 +58,16 @@ function App() {
       if (envInfo?.useProxy) {
         console.log("🔄 Ambiente local detectado, carregando dados do PSN...");
         await loadPSNData();
-        console.log("✅ Dados do PSN carregados, trophyTitles agora tem:", trophyTitles.length, "jogos");
+        console.log("✅ Dados do PSN carregados com sucesso");
       } else {
         // Se estamos no Vercel, tentar Firebase primeiro
         try {
           console.log("🔄 Tentando carregar dados do Firebase...");
           await loadFirebaseData();
 
-          // Se Firebase não retornou dados, mostrar erro
-          if (!trophyTitles || trophyTitles.length === 0) {
+          // Verificar se Firebase retornou dados
+          const currentTitles = await FirebaseService.getGameLibrary();
+          if (!currentTitles || currentTitles.length === 0) {
             console.log("🌐 Firebase vazio no Vercel");
             setError("Firebase não possui dados. Sincronize localmente primeiro, depois faça deploy.");
           }
@@ -135,10 +110,9 @@ function App() {
   useEffect(() => {
     if (envInfo) {
       console.log("🌍 Ambiente carregado, iniciando carregamento de dados...");
-      console.log("🔍 Estado atual de trophyTitles:", trophyTitles.length, "jogos");
       loadData();
     }
-  }, [envInfo]); // Removido loadData das dependências para evitar loop infinito
+  }, [envInfo, loadData]);
 
   const loadFirebaseData = async () => {
     try {
