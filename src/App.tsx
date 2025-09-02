@@ -49,6 +49,30 @@ function App() {
     setEnvInfo(info);
   };
 
+  // Função para sincronização inicial no Vercel
+  const handleInitialSync = useCallback(async () => {
+    try {
+      console.log("🚀 Iniciando sincronização inicial para Vercel...");
+      
+      // Tentar sincronizar dados básicos
+      await SyncService.syncAllData();
+      
+      // Recarregar dados do Firebase após sincronização
+      console.log("🔄 Recarregando dados do Firebase após sincronização...");
+      await loadFirebaseData();
+      
+      if (trophyTitles && trophyTitles.length > 0) {
+        console.log("✅ Sincronização inicial bem-sucedida!");
+      } else {
+        console.log("⚠️ Sincronização inicial não retornou dados");
+        setError("Sincronização inicial não retornou dados. Verifique se o PSN está configurado.");
+      }
+    } catch (error) {
+      console.error("❌ Erro na sincronização inicial:", error);
+      setError("Erro na sincronização inicial. Verifique o console para mais detalhes.");
+    }
+  }, [trophyTitles]);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -96,31 +120,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [envInfo?.useProxy, trophyTitles]);
-
-  // Função para sincronização inicial no Vercel
-  const handleInitialSync = async () => {
-    try {
-      console.log("🚀 Iniciando sincronização inicial para Vercel...");
-      
-      // Tentar sincronizar dados básicos
-      await SyncService.syncAllData();
-      
-      // Recarregar dados do Firebase após sincronização
-      console.log("🔄 Recarregando dados do Firebase após sincronização...");
-      await loadFirebaseData();
-      
-      if (trophyTitles && trophyTitles.length > 0) {
-        console.log("✅ Sincronização inicial bem-sucedida!");
-      } else {
-        console.log("⚠️ Sincronização inicial não retornou dados");
-        setError("Sincronização inicial não retornou dados. Verifique se o PSN está configurado.");
-      }
-    } catch (error) {
-      console.error("❌ Erro na sincronização inicial:", error);
-      setError("Erro na sincronização inicial. Verifique o console para mais detalhes.");
-    }
-  };
+  }, [envInfo?.useProxy, trophyTitles, handleInitialSync]);
 
   useEffect(() => {
     loadData();
