@@ -136,34 +136,35 @@ function App() {
       setCurrentGame(currentGameData);
       setGameSuggestions(suggestionsData || []);
 
-      // Converter GameLibrary para TrophyTitle se disponível
+      // Os dados já estão no formato correto (TrophyTitle), não precisamos converter!
       if (gameLibraryData && gameLibraryData.length > 0) {
-        console.log("🔄 Convertendo GameLibrary para TrophyTitle...");
+        console.log("🔄 Dados do Firebase já estão no formato correto (TrophyTitle)");
         console.log("🔍 Dados brutos do Firebase:", gameLibraryData.slice(0, 2));
         
-        const convertedTitles = gameLibraryData.map((game) => {
-          console.log("🔄 Convertendo jogo:", game);
+        // Os dados já são TrophyTitle, só precisamos mapear alguns campos
+        const processedTitles = gameLibraryData.map((game: any) => {
+          console.log("🔄 Processando jogo:", game);
           
           return {
-            npTitleId: game.id,
-            trophyTitleName: game.title,
-            trophyTitleIconUrl: game.iconUrl || "https://via.placeholder.com/100x100?text=🎮",
-            trophyTitlePlatform: game.platform,
-            hasTrophyGroups: false,
-            progress: game.isCompleted ? 100 : 0,
-            lastUpdatedDate: game.lastUpdated.toISOString(),
-            earnedTrophies: { platinum: 0, gold: 0, silver: 0, bronze: 0 }
+            npTitleId: game.npTitleId || game.npCommunicationId || game.id,
+            trophyTitleName: game.trophyTitleName || game.trophyTitleDetail || "Jogo sem nome",
+            trophyTitleIconUrl: game.trophyTitleIconUrl || "https://via.placeholder.com/100x100?text=🎮",
+            trophyTitlePlatform: game.trophyTitlePlatform || "PS4",
+            hasTrophyGroups: game.hasTrophyGroups || false,
+            progress: game.progress || 0,
+            lastUpdatedDate: game.lastUpdatedDate || game.lastUpdated?.toISOString() || new Date().toISOString(),
+            earnedTrophies: game.earnedTrophies || { platinum: 0, gold: 0, silver: 0, bronze: 0 }
           };
         });
         
-        console.log("✅ Jogos convertidos:", convertedTitles.slice(0, 2));
-        setTrophyTitles(convertedTitles);
+        console.log("✅ Jogos processados:", processedTitles.slice(0, 2));
+        setTrophyTitles(processedTitles);
         console.log(
-          `✅ ${convertedTitles.length} jogos convertidos e definidos`
+          `✅ ${processedTitles.length} jogos processados e definidos`
         );
       } else {
         console.log(
-          "⚠️ GameLibrary vazia ou nula, não há jogos para converter"
+          "⚠️ Firebase vazio, não há jogos para processar"
         );
       }
 
