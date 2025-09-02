@@ -17,7 +17,7 @@ const CurrentGameCard: React.FC<CurrentGameCardProps> = ({ currentGame, onUpdate
     if (currentGame?.youtubePlaylist) {
       loadYouTubeVideos();
     }
-  }, [currentGame]);
+  }, [currentGame, currentGame?.youtubePlaylist]);
 
   const loadYouTubeVideos = async () => {
     if (!currentGame?.id) return;

@@ -34,7 +34,6 @@ function App() {
           useEffect(() => {
           loadData();
           loadEnvironmentInfo();
-          loadFirebaseData();
 
           // Configurar sincronização automática a cada 30 minutos
           SyncService.setupAutoSync(30);
