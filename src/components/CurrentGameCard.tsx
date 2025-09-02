@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CurrentGame, YouTubeVideo } from '../types';
 import { FirebaseService } from '../services/firebaseService';
 import './CurrentGameCard.css';
@@ -19,7 +19,7 @@ const CurrentGameCard: React.FC<CurrentGameCardProps> = ({ currentGame, onUpdate
     }
   }, [currentGame, currentGame?.youtubePlaylist]);
 
-  const loadYouTubeVideos = async () => {
+  const loadYouTubeVideos = useCallback(async () => {
     if (!currentGame?.id) return;
     
     try {
@@ -31,7 +31,7 @@ const CurrentGameCard: React.FC<CurrentGameCardProps> = ({ currentGame, onUpdate
     } finally {
       setLoadingVideos(false);
     }
-  };
+  }, [currentGame?.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

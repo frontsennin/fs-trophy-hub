@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import GameCard from './components/GameCard';
 import TrophyCard from './components/TrophyCard';
@@ -54,7 +54,7 @@ function App() {
     setEnvInfo(info);
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -93,7 +93,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [envInfo?.useProxy, trophyTitles]);
 
           const loadFirebaseData = async () => {
           try {
@@ -257,8 +257,8 @@ function App() {
           style={{ cursor: 'pointer' }}
         >
           🏆 FS Trophy Hub
-        </h1>
-
+          </h1>
+          
         {/* Navegação Principal */}
         <nav className="main-navigation">
           <button

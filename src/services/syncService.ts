@@ -133,11 +133,14 @@ export class SyncService {
     try {
       // Aqui você pode implementar lógica para verificar se há novos dados
       // Por exemplo, comparar timestamps de última sincronização
-      return true;
+      // TODO: Implementar lógica de verificação real
     } catch (error) {
       console.error('❌ Erro ao verificar atualizações:', error);
       return false;
     }
+    
+    // Por enquanto, sempre retorna true (sem atualizações)
+    return true;
   }
   
   /**
