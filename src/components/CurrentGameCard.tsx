@@ -13,12 +13,6 @@ const CurrentGameCard: React.FC<CurrentGameCardProps> = ({ currentGame, onUpdate
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [showVideos, setShowVideos] = useState(false);
 
-  useEffect(() => {
-    if (currentGame?.youtubePlaylist) {
-      loadYouTubeVideos();
-    }
-  }, [currentGame, currentGame?.youtubePlaylist]);
-
   const loadYouTubeVideos = useCallback(async () => {
     if (!currentGame?.id) return;
     
@@ -32,6 +26,12 @@ const CurrentGameCard: React.FC<CurrentGameCardProps> = ({ currentGame, onUpdate
       setLoadingVideos(false);
     }
   }, [currentGame?.id]);
+
+  useEffect(() => {
+    if (currentGame?.youtubePlaylist) {
+      loadYouTubeVideos();
+    }
+  }, [currentGame, currentGame?.youtubePlaylist, loadYouTubeVideos]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
