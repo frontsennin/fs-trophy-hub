@@ -348,14 +348,30 @@ export class FirebaseService {
 
   static async getGameLibrary(): Promise<GameLibrary[]> {
     try {
+      console.log('🔍 Firebase: Buscando coleção gameLibrary...');
+      
       // Query simplificada - sem ordenação para evitar necessidade de índice
       const querySnapshot = await getDocs(collection(db, 'gameLibrary'));
       
-      const games = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        lastUpdated: doc.data().lastUpdated?.toDate() || new Date()
-      })) as GameLibrary[];
+      console.log(`📊 Firebase: Encontrados ${querySnapshot.docs.length} documentos na coleção gameLibrary`);
+      
+      if (querySnapshot.docs.length === 0) {
+        console.log('⚠️ Firebase: Coleção gameLibrary está vazia');
+        return [];
+      }
+      
+      const games = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log(`📄 Firebase: Documento ${doc.id}:`, data);
+        
+        return {
+          id: doc.id,
+          ...data,
+          lastUpdated: data.lastUpdated?.toDate() || new Date()
+        };
+      }) as GameLibrary[];
+      
+      console.log(`✅ Firebase: ${games.length} jogos processados da biblioteca`);
       
       // Ordenar localmente por data de atualização (mais recente primeiro)
       return games.sort((a, b) => {
@@ -366,6 +382,12 @@ export class FirebaseService {
       
     } catch (error) {
       console.error('❌ Erro ao buscar biblioteca:', error);
+      if (error instanceof Error) {
+        console.error('❌ Detalhes do erro:', {
+          message: error.message,
+          stack: error.stack
+        });
+      }
       return [];
     }
   }
