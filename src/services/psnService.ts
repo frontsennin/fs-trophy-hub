@@ -28,7 +28,8 @@ export class PSNService {
   // Detectar ambiente
   private static readonly isDevelopment = process.env.NODE_ENV === 'development';
   private static readonly isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  private static readonly useProxy = this.isDevelopment && this.isLocalhost;
+  private static readonly isVercel = window.location.hostname.includes('vercel.app');
+  private static readonly useProxy = this.isDevelopment && this.isLocalhost && !this.isVercel;
   
   // URLs base
   private static readonly PROXY_URL = 'http://localhost:3001/api';
@@ -60,7 +61,13 @@ export class PSNService {
         return await this.checkProxyStatus();
       }
       
-      // Em produção, verificar se temos tokens válidos
+      // Em produção (Vercel), NÃO tentar acessar PSN API
+      if (this.isVercel) {
+        console.log('🌐 Ambiente Vercel detectado - usando apenas Firebase');
+        return false; // Retorna false para forçar uso do Firebase
+      }
+      
+      // Em outros ambientes de produção, verificar se temos tokens válidos
       return await this.ensureValidTokens();
     } catch (error) {
       console.error('❌ Erro ao verificar status da API:', error);
@@ -716,6 +723,7 @@ export class PSNService {
   static getEnvironmentInfo(): {
     isDevelopment: boolean;
     isLocalhost: boolean;
+    isVercel: boolean;
     useProxy: boolean;
     proxyUrl: string;
     productionUrl: string;
@@ -723,6 +731,7 @@ export class PSNService {
     return {
       isDevelopment: this.isDevelopment,
       isLocalhost: this.isLocalhost,
+      isVercel: this.isVercel,
       useProxy: this.useProxy,
       proxyUrl: this.PROXY_URL,
       productionUrl: this.PRODUCTION_URL

@@ -36,6 +36,12 @@
   color: #4caf50;
 }
 
+.environment-badge.vercel {
+  background: rgba(138, 43, 226, 0.2);
+  border: 1px solid rgba(138, 43, 226, 0.4);
+  color: #8a2be2;
+}
+
 .badge-icon {
   font-size: 14px;
 }

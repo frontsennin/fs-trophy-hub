@@ -84,7 +84,9 @@ const PSNStatusIndicator: React.FC = () => {
   const getConnectionMode = () => {
     if (!environmentInfo) return '';
     
-    if (environmentInfo.useProxy) {
+    if (environmentInfo.isVercel) {
+      return '🌐 Vercel + Firebase';
+    } else if (environmentInfo.useProxy) {
       return '🔄 Via Proxy Local';
     } else {
       return '🌐 Direto PSN';
@@ -94,7 +96,14 @@ const PSNStatusIndicator: React.FC = () => {
   const getEnvironmentBadge = () => {
     if (!environmentInfo) return null;
     
-    if (environmentInfo.useProxy) {
+    if (environmentInfo.isVercel) {
+      return (
+        <div className="environment-badge vercel">
+          <span className="badge-icon">🚀</span>
+          <span className="badge-text">Vercel + Firebase</span>
+        </div>
+      );
+    } else if (environmentInfo.useProxy) {
       return (
         <div className="environment-badge proxy">
           <span className="badge-icon">🔄</span>
