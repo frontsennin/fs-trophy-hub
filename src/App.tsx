@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import "./App.css";
 import GameCard from "./components/GameCard";
-import TrophyCard from "./components/TrophyCard";
 import PSNStatusIndicator from "./components/PSNStatusIndicator";
 import CurrentGameCard from "./components/CurrentGameCard";
 import GameSuggestionForm from "./components/GameSuggestionForm";
@@ -12,7 +11,6 @@ import { FirebaseService } from "./services/firebaseService";
 import { SyncService } from "./services/syncService";
 import {
   TrophyTitle,
-  Trophy,
   ProfileSummary,
   CurrentGame,
   GameSuggestion,
@@ -26,7 +24,6 @@ function App() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const [selectedGame, setSelectedGame] = useState<TrophyTitle | null>(null);
-  const [trophies, setTrophies] = useState<Trophy[]>([]);
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
     null
   );
@@ -420,7 +417,6 @@ function App() {
   const handleBackToGames = () => {
     setCurrentView("games");
     setSelectedGame(null);
-    setTrophies([]);
   };
 
   const handleSyncNow = async () => {
