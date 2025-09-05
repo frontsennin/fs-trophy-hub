@@ -466,8 +466,8 @@ export class PSNService {
         throw new Error('Dados inválidos retornados pelo proxy');
       }
       
-      // Verificar se temos a estrutura esperada
-      if (!data.trophies || !Array.isArray(data.trophies)) {
+      // Verificar se temos a estrutura esperada do proxy
+      if (!data.trophies || !data.trophies.trophies || !Array.isArray(data.trophies.trophies)) {
         console.error('❌ Estrutura inesperada dos dados:', data);
         
         // Tentar encontrar troféus em outras estruturas possíveis
@@ -480,7 +480,28 @@ export class PSNService {
         return [];
       }
       
-      return this.convertTrophyData(data.trophies);
+      // Combinar dados dos troféus com informações de conquista
+      const combinedTrophies = data.trophies.trophies.map((trophy: any) => {
+        // Encontrar informações de conquista correspondentes
+        const earnedInfo = data.earned?.trophies?.find(
+          (earned: any) => earned.trophyId === trophy.trophyId
+        );
+        
+        return {
+          trophyId: trophy.trophyId,
+          trophyHidden: trophy.trophyHidden,
+          trophyType: trophy.trophyType,
+          trophyName: trophy.trophyName,
+          trophyDetail: trophy.trophyDetail,
+          trophyIconUrl: trophy.trophyIconUrl,
+          trophyRare: earnedInfo?.trophyRare || 0,
+          trophyEarnedRate: earnedInfo?.trophyEarnedRate || '0.0',
+          earned: earnedInfo?.earned || false,
+          earnedDate: earnedInfo?.earnedDateTime || undefined
+        };
+      });
+      
+      return combinedTrophies;
       
     } catch (error) {
       console.error(`❌ Erro ao buscar troféus via proxy para ${npTitleId}:`, error);

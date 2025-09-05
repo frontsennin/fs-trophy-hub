@@ -6,6 +6,7 @@ import PSNStatusIndicator from "./components/PSNStatusIndicator";
 import CurrentGameCard from "./components/CurrentGameCard";
 import GameSuggestionForm from "./components/GameSuggestionForm";
 import CurrentGameForm from "./components/CurrentGameForm";
+import GameDetails from "./components/GameDetails";
 import { PSNService } from "./services/psnService";
 import { FirebaseService } from "./services/firebaseService";
 import { SyncService } from "./services/syncService";
@@ -35,7 +36,7 @@ function App() {
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
   const [showCurrentGameForm, setShowCurrentGameForm] = useState(false);
   const [currentView, setCurrentView] = useState<
-    "games" | "currentGame" | "suggestions" | "sync"
+    "games" | "currentGame" | "suggestions" | "sync" | "gameDetails"
   >("games");
   const [userIP, setUserIP] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -409,16 +410,17 @@ function App() {
       }
       
       setSelectedGame(game);
-      setLoading(true);
-
-      const gameTrophies = await PSNService.getTrophiesForTitle(game.npTitleId);
-      setTrophies(gameTrophies);
+      setCurrentView("gameDetails");
     } catch (error) {
-      console.error("Error loading trophies:", error);
-      setError("Erro ao carregar troféus do jogo.");
-    } finally {
-      setLoading(false);
+      console.error("Error selecting game:", error);
+      setError("Erro ao selecionar jogo.");
     }
+  };
+
+  const handleBackToGames = () => {
+    setCurrentView("games");
+    setSelectedGame(null);
+    setTrophies([]);
   };
 
   const handleSyncNow = async () => {
@@ -628,17 +630,15 @@ function App() {
               )}
             </section>
 
-            {selectedGame && (
-              <section className="trophies-section">
-                <h2>🏆 Troféus de {selectedGame.trophyTitleName}</h2>
-                <div className="trophies-grid">
-                  {trophies.map((trophy) => (
-                    <TrophyCard key={trophy.trophyId} trophy={trophy} />
-                  ))}
-                </div>
-              </section>
-            )}
           </>
+        )}
+
+        {/* View: Detalhes do Jogo */}
+        {currentView === "gameDetails" && selectedGame && (
+          <GameDetails 
+            game={selectedGame} 
+            onBack={handleBackToGames}
+          />
         )}
 
         {/* View: Jogo Atual */}

@@ -209,13 +209,30 @@ app.get('/api/trophies/:npCommunicationId', async (req, res) => {
     
     // Obter informações do jogo para determinar o npServiceName
     const titlesResponse = await getUserTitles(authorization, 'me');
+    
+    console.log(`🔍 Procurando jogo: ${npCommunicationId}`);
+    console.log(`🔍 Total de jogos na lista: ${titlesResponse.trophyTitles.length}`);
+    
+    // Log dos primeiros 5 jogos para debug
+    console.log('🔍 Primeiros 5 jogos:');
+    titlesResponse.trophyTitles.slice(0, 5).forEach((game, index) => {
+      console.log(`  ${index + 1}. ${game.npCommunicationId} - ${game.trophyTitleName}`);
+    });
+    
     const gameInfo = titlesResponse.trophyTitles.find(
       title => title.npCommunicationId === npCommunicationId
     );
     
     if (!gameInfo) {
+      console.log(`❌ Jogo ${npCommunicationId} não encontrado na lista`);
+      console.log('🔍 Jogos disponíveis (primeiros 10):');
+      titlesResponse.trophyTitles.slice(0, 10).forEach((game, index) => {
+        console.log(`  ${index + 1}. ${game.npCommunicationId} - ${game.trophyTitleName}`);
+      });
       throw new Error('Game not found');
     }
+    
+    console.log(`✅ Jogo encontrado: ${gameInfo.trophyTitleName} (${gameInfo.trophyTitlePlatform})`);
     
     // Determinar npServiceName baseado na plataforma
     const npServiceName = gameInfo.trophyTitlePlatform.includes('PS5') ? 'trophy2' : 'trophy';

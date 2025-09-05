@@ -71,6 +71,43 @@ export class FirebaseService {
     }
   }
 
+  /**
+   * Buscar troféus de um jogo específico do Firebase
+   */
+  static async getTrophiesForGame(gameId: string): Promise<Trophy[]> {
+    try {
+      console.log(`🔍 Buscando troféus do jogo ${gameId} no Firebase...`);
+      
+      const trophiesRef = collection(db, 'trophies');
+      const q = query(trophiesRef, where('gameId', '==', gameId));
+      const querySnapshot = await getDocs(q);
+      
+      const trophies: Trophy[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        trophies.push({
+          trophyId: data.trophyId,
+          trophyHidden: data.trophyHidden || false,
+          trophyType: data.trophyType,
+          trophyName: data.trophyName || 'Troféu sem nome',
+          trophyDetail: data.trophyDetail || '',
+          trophyIconUrl: data.trophyIconUrl || '',
+          trophyRare: data.trophyRare || 0,
+          trophyEarnedRate: data.trophyEarnedRate || '0.0',
+          earned: data.earned || false,
+          earnedDate: data.earnedDate ? data.earnedDate.toDate().toISOString() : undefined
+        });
+      });
+      
+      console.log(`✅ Encontrados ${trophies.length} troféus para o jogo ${gameId}`);
+      return trophies;
+      
+    } catch (error) {
+      console.error(`❌ Erro ao buscar troféus do jogo ${gameId}:`, error);
+      throw error;
+    }
+  }
+
   // ===== SEGUIDORES =====
   
   static async addFollower(follower: Omit<Follower, 'id'>): Promise<string> {

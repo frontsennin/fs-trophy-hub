@@ -12,6 +12,12 @@ export interface TrophyTitle {
     gold: number;
     platinum: number;
   };
+  definedTrophies?: {
+    bronze: number;
+    silver: number;
+    gold: number;
+    platinum: number;
+  };
 }
 
 export interface Trophy {
