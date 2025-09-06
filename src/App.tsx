@@ -29,6 +29,12 @@ function App() {
   );
   const [currentGame, setCurrentGame] = useState<CurrentGame | null>(null);
   const [gameSuggestions, setGameSuggestions] = useState<GameSuggestion[]>([]);
+  const [filteredGameSuggestions, setFilteredGameSuggestions] = useState<GameSuggestion[]>([]);
+  const [suggestionSearchTerm, setSuggestionSearchTerm] = useState<string>('');
+  const [suggestionFilterUser, setSuggestionFilterUser] = useState<string>('all');
+  const [suggestionFilterPlatform, setSuggestionFilterPlatform] = useState<string>('all');
+  const [suggestionSortBy, setSuggestionSortBy] = useState<'points' | 'date' | 'status' | 'title'>('points');
+  const [suggestionSortOrder, setSuggestionSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
   const [showCurrentGameForm, setShowCurrentGameForm] = useState(false);
@@ -53,7 +59,10 @@ function App() {
   };
 
   // Funções auxiliares para o sistema de sugestões
-  const getUserIP = () => userIP;
+  const getUserIP = () => {
+    console.log('🔍 getUserIP chamado, retornando:', userIP);
+    return userIP;
+  };
 
   const getStatusColor = (status: GameSuggestion['status']) => {
     switch (status) {
@@ -77,17 +86,24 @@ function App() {
 
   const getUserIPFromAPI = async () => {
     try {
+      console.log('🌐 Tentando obter IP do usuário...');
       const response = await fetch('https://api.ipify.org?format=json');
       const data = await response.json();
+      console.log('🌐 IP obtido:', data.ip);
       setUserIP(data.ip);
     } catch (error) {
-      console.error('Erro ao obter IP:', error);
+      console.error('❌ Erro ao obter IP:', error);
       // Fallback para IP local
-      setUserIP('local-' + Math.random().toString(36).substr(2, 9));
+      const fallbackIP = 'local-' + Math.random().toString(36).substr(2, 9);
+      console.log('🌐 Usando IP fallback:', fallbackIP);
+      setUserIP(fallbackIP);
     }
   };
 
   const handleVote = async (suggestionId: string) => {
+    console.log('🗳️ Tentando votar na sugestão:', suggestionId);
+    console.log('🗳️ IP do usuário:', userIP);
+    
     if (!userIP) {
       alert('Aguarde um momento para poder votar...');
       return;
@@ -95,7 +111,13 @@ function App() {
 
     try {
       const suggestion = gameSuggestions.find(s => s.id === suggestionId);
-      if (!suggestion) return;
+      if (!suggestion) {
+        console.error('❌ Sugestão não encontrada:', suggestionId);
+        return;
+      }
+
+      console.log('🗳️ Sugestão encontrada:', suggestion);
+      console.log('🗳️ Já votou?', (suggestion.votedBy ?? []).includes(userIP));
 
       // Verificar se já votou
       if ((suggestion.votedBy ?? []).includes(userIP)) {
@@ -103,18 +125,98 @@ function App() {
         return;
       }
 
+      console.log('🗳️ Chamando FirebaseService.updateSuggestionPoints...');
       // Atualizar pontos
       await FirebaseService.updateSuggestionPoints(suggestionId, userIP);
       
+      console.log('🗳️ Recarregando sugestões...');
       // Recarregar sugestões
       const updatedSuggestions = await FirebaseService.getGameSuggestions();
       setGameSuggestions(updatedSuggestions);
       
+      console.log('✅ Voto realizado com sucesso!');
+      
     } catch (error) {
-      console.error('Erro ao votar:', error);
-      alert('Erro ao votar. Tente novamente.');
+      console.error('❌ Erro ao votar:', error);
+      alert(`Erro ao votar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
+
+  // Função para filtrar e ordenar sugestões
+  const filterAndSortSuggestions = useCallback(() => {
+    let filtered = [...gameSuggestions];
+    
+    // Aplicar filtro de busca
+    if (suggestionSearchTerm) {
+      filtered = filtered.filter(suggestion => 
+        suggestion.gameTitle.toLowerCase().includes(suggestionSearchTerm.toLowerCase()) ||
+        suggestion.platform.toLowerCase().includes(suggestionSearchTerm.toLowerCase()) ||
+        (suggestion.userInfo?.name || suggestion.suggestedBy).toLowerCase().includes(suggestionSearchTerm.toLowerCase())
+      );
+    }
+
+    // Aplicar filtro de usuário
+    if (suggestionFilterUser !== 'all') {
+      filtered = filtered.filter(suggestion => 
+        (suggestion.userInfo?.name || suggestion.suggestedBy) === suggestionFilterUser
+      );
+    }
+
+    // Aplicar filtro de plataforma
+    if (suggestionFilterPlatform !== 'all') {
+      filtered = filtered.filter(suggestion => suggestion.platform === suggestionFilterPlatform);
+    }
+    
+    // Aplicar ordenação
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (suggestionSortBy) {
+        case 'points':
+          aValue = a.points ?? 0;
+          bValue = b.points ?? 0;
+          
+          // Se os pontos forem iguais, ordenar por data (mais antigo primeiro)
+          if (aValue === bValue) {
+            const aDate = new Date(a.suggestedAt).getTime();
+            const bDate = new Date(b.suggestedAt).getTime();
+            return aDate - bDate; // Mais antigo primeiro
+          }
+          break;
+        case 'date':
+          aValue = new Date(a.suggestedAt).getTime();
+          bValue = new Date(b.suggestedAt).getTime();
+          break;
+        case 'status':
+          const statusOrder = { 'pending': 0, 'approved': 1, 'completed': 2, 'rejected': 3 };
+          aValue = statusOrder[a.status as keyof typeof statusOrder] ?? 4;
+          bValue = statusOrder[b.status as keyof typeof statusOrder] ?? 4;
+          break;
+        case 'title':
+          aValue = a.gameTitle.toLowerCase();
+          bValue = b.gameTitle.toLowerCase();
+          break;
+        default:
+          // Ordenação padrão: pontos primeiro, depois data (mais antigo primeiro)
+          aValue = a.points ?? 0;
+          bValue = b.points ?? 0;
+          
+          if (aValue === bValue) {
+            const aDate = new Date(a.suggestedAt).getTime();
+            const bDate = new Date(b.suggestedAt).getTime();
+            return aDate - bDate; // Mais antigo primeiro
+          }
+      }
+      
+      if (suggestionSortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+    
+    setFilteredGameSuggestions(filtered);
+  }, [gameSuggestions, suggestionSearchTerm, suggestionFilterUser, suggestionFilterPlatform, suggestionSortBy, suggestionSortOrder]);
 
   // Função para filtrar e ordenar jogos
   const filterAndSortGames = useCallback(() => {
@@ -181,6 +283,11 @@ function App() {
   useEffect(() => {
     filterAndSortGames();
   }, [filterAndSortGames]);
+
+  // Atualizar lista filtrada quando gameSuggestions ou filtros mudarem
+  useEffect(() => {
+    filterAndSortSuggestions();
+  }, [filterAndSortSuggestions]);
 
   const loadData = useCallback(async () => {
     try {
@@ -664,7 +771,7 @@ function App() {
         {currentView === "suggestions" && (
           <section className="suggestions-section">
             <div className="suggestions-header">
-              <h2>💡 Sugestões de Jogos</h2>
+              <h2>💡 Sugestões de Jogos ({filteredGameSuggestions.length} de {gameSuggestions.length})</h2>
               <button
                 onClick={() => setShowSuggestionForm(true)}
                 className="add-suggestion-btn"
@@ -673,14 +780,100 @@ function App() {
               </button>
             </div>
 
+            {/* Controles de Busca, Filtro e Ordenação */}
+            <div className="suggestions-controls">
+              <div className="search-container">
+                <input
+                  type="text"
+                  placeholder="🔍 Buscar sugestões..."
+                  value={suggestionSearchTerm}
+                  onChange={(e) => setSuggestionSearchTerm(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+              
+              <div className="filters-row">
+                <div className="filter-group">
+                  <label className="filter-label">Sugerido por:</label>
+                  <select
+                    value={suggestionFilterUser}
+                    onChange={(e) => setSuggestionFilterUser(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">Todos</option>
+                    {Array.from(new Set(gameSuggestions.map(s => s.userInfo?.name || s.suggestedBy))).map(user => (
+                      <option key={user} value={user}>{user}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label className="filter-label">Plataforma:</label>
+                  <select
+                    value={suggestionFilterPlatform}
+                    onChange={(e) => setSuggestionFilterPlatform(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">Todas</option>
+                    <option value="PS4">PS4</option>
+                    <option value="PS5">PS5</option>
+                    <option value="PSPC">PSPC</option>
+                    <option value="PS Vita">PS Vita</option>
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <label className="filter-label">Ordenar por:</label>
+                  <select
+                    value={suggestionSortBy}
+                    onChange={(e) => setSuggestionSortBy(e.target.value as any)}
+                    className="filter-select"
+                  >
+                    <option value="points">⭐ Pontos</option>
+                    <option value="date">📅 Data</option>
+                    <option value="status">📊 Status</option>
+                    <option value="title">📝 Título</option>
+                  </select>
+                </div>
+
+                <div className="filter-group">
+                  <button
+                    onClick={() => setSuggestionSortOrder(suggestionSortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="sort-order-btn"
+                    title={`Ordenar ${suggestionSortOrder === 'asc' ? 'decrescente' : 'crescente'}`}
+                  >
+                    {suggestionSortOrder === 'asc' ? '⬆️' : '⬇️'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="suggestions-grid">
-              {gameSuggestions.length === 0 ? (
+              {filteredGameSuggestions.length === 0 ? (
                 <div className="no-suggestions">
-                  <p>Nenhuma sugestão encontrada.</p>
-                  <p>Seja o primeiro a sugerir um jogo!</p>
+                  {gameSuggestions.length === 0 ? (
+                    <>
+                      <p>Nenhuma sugestão encontrada.</p>
+                      <p>Seja o primeiro a sugerir um jogo!</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>🔍 Nenhuma sugestão encontrada com os filtros selecionados.</p>
+                      <button 
+                        onClick={() => {
+                          setSuggestionSearchTerm('');
+                          setSuggestionFilterUser('all');
+                          setSuggestionFilterPlatform('all');
+                        }}
+                        className="clear-filters-btn"
+                      >
+                        Limpar Filtros
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
-                gameSuggestions.map((suggestion) => (
+                filteredGameSuggestions.map((suggestion) => (
                 <div key={suggestion.id} className="suggestion-card">
                     <div className="suggestion-header">
                       <div className="game-info">
